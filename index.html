@@ -2145,14 +2145,24 @@ function getCfg(){
   if(SUPABASE_URL && SUPABASE_ANON_KEY) return { url:SUPABASE_URL, key:SUPABASE_ANON_KEY };
   try{
     const c = JSON.parse(localStorage.getItem(CFG_KEY));
-    if(c && c.url && c.key) return c;
+    if(c && c.url && c.key && !isSecretKey(c.key)) return c;
   }catch(e){}
   return null;
 }
+function isSecretKey(k){
+  if(/^sb_secret_/i.test(k)) return true;
+  try{
+    const part = k.split('.')[1];
+    if(part){ const p = JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/'))); if(p && p.role === 'service_role') return true; }
+  }catch(e){}
+  return false;
+}
+function resetCfg(){ try{ localStorage.removeItem(CFG_KEY); }catch(e){} location.reload(); }
 function userEmail(u){ return u + '@' + EMAIL_DOMAIN; }
 function roleLabel(r){ return ({ admin:'ผู้ดูแล (admin)', staff:'พนักงาน', pending:'รออนุมัติ', disabled:'ถูกระงับ' })[r] || r; }
 function friendlyErr(e){
   const m = (e && e.message) ? e.message : String(e);
+  if(/secret api key in browser/i.test(m)) return 'ใส่ secret key ผิดตัว กดลิงก์ "เปลี่ยนการเชื่อมต่อเซิร์ฟเวอร์" แล้วใช้ anon / Publishable key แทน';
   if(/insufficient stock/i.test(m)) return 'สต๊อกไม่พอ';
   if(/no permission|row-level security|permission denied/i.test(m)) return 'ไม่มีสิทธิ์ทำรายการนี้';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'ออนไลน์ไม่ได้ ตรวจสอบอินเทอร์เน็ต';
@@ -2186,6 +2196,7 @@ function renderSetup(){
     const key = document.getElementById('cfgKey').value.trim();
     if(!/^https:\/\/[^\s/]+$/.test(url)){ document.getElementById('cfgErr').textContent = 'URL ต้องขึ้นต้นด้วย https:// และไม่มีเครื่องหมายต่อท้าย'; return; }
     if(key.length < 20){ document.getElementById('cfgErr').textContent = 'anon key สั้นเกินไป ตรวจว่าคัดลอกมาครบ'; return; }
+    if(isSecretKey(key)){ document.getElementById('cfgErr').textContent = 'นี่คือ secret key ใช้ในเว็บไม่ได้ ให้ใช้ตัว anon / Publishable key (sb_publishable_... หรือ eyJ... ที่ role เป็น anon)'; return; }
     try{ localStorage.setItem(CFG_KEY, JSON.stringify({ url, key })); }catch(err){}
     location.reload();
   };
@@ -2210,8 +2221,10 @@ function renderAuth(){
       <div class="auth-error" id="auError" role="alert"></div>
       <button class="btn primary" type="submit" id="auSubmit" style="width:100%; justify-content:center; padding:12px;">${isSignup?'สมัครสมาชิก':'เข้าสู่ระบบ'}</button>
     </form>
-    <div class="auth-foot">ข้อมูลร้านและบัญชีอยู่บนเซิร์ฟเวอร์กลาง ใช้ได้ทั้งมือถือและคอมพิวเตอร์</div>
+    <div class="auth-foot">ข้อมูลร้านและบัญชีอยู่บนเซิร์ฟเวอร์กลาง ใช้ได้ทั้งมือถือและคอมพิวเตอร์${SUPABASE_URL ? '' : '<br><a href="#" id="lnkResetCfg" style="color:var(--muted);">เปลี่ยนการเชื่อมต่อเซิร์ฟเวอร์</a>'}</div>
   `);
+  const lnk = document.getElementById('lnkResetCfg');
+  if(lnk) lnk.onclick = (e)=>{ e.preventDefault(); resetCfg(); };
   document.querySelectorAll('[data-auth-mode]').forEach(b=>{ b.onclick = ()=>{ authMode = b.dataset.authMode; renderAuth(); }; });
   const errEl = document.getElementById('auError');
   const submitBtn = document.getElementById('auSubmit');
