@@ -1471,16 +1471,51 @@ function viewBuySell(mode){
   `;
 }
 
-function addToCart(mode, mid){
+function openWeightModal(mode, mid){
+  const m = getMaterial(mid); if(!m) return;
+  const isSell = mode==='sell';
+  const price = materialPrice(m, mode);
+  const inCart = (cartArray(mode).find(c=>c.materialId===mid)||{}).qty || 0;
+  const maxQty = isSell ? Number((m.stock - inCart).toFixed(3)) : Infinity;
+  if(isSell && maxQty <= 0){ toast('สต๊อกไม่พอ','err'); return; }
+  openModal(esc(m.name), `
+    <div style="text-align:center;">
+      <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">฿${money(price)} / ${esc(m.unit)}${isSell?` · เหลือ ${formatQty(maxQty)} ${esc(m.unit)}`:''}${inCart?` · ในรายการแล้ว ${formatQty(inCart)}`:''}</div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+        <input id="wtInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" style="width:170px; font-size:34px; font-weight:700; text-align:center; padding:12px 8px; border:2px solid var(--line); border-radius:18px; background:var(--paper); color:var(--ink);">
+        <span style="font-size:18px; font-weight:600;">${esc(m.unit)}</span>
+      </div>
+      <div id="wtTotal" style="margin-top:16px; font-size:15px; color:var(--muted);">รวม <b style="font-size:22px; color:var(--ink);">฿0.00</b></div>
+    </div>`,
+    `<button class="btn" id="wtCancel">ยกเลิก</button><button class="btn primary" id="wtOk" disabled>เพิ่มลงรายการ</button>`);
+  const inp = document.getElementById('wtInput'), ok = document.getElementById('wtOk'), tot = document.getElementById('wtTotal');
+  const val = ()=>{ const v = parseFloat(inp.value); return isFinite(v) && v>0 ? v : 0; };
+  inp.addEventListener('input', ()=>{
+    const v = val();
+    tot.innerHTML = `รวม <b style="font-size:22px; color:var(--ink);">฿${money(v*price)}</b>${v>maxQty?' <span style="color:var(--loss);">· สต๊อกไม่พอ</span>':''}`;
+    ok.disabled = !(v>0 && v<=maxQty);
+  });
+  const submit = ()=>{
+    const v = val(); if(!(v>0)) return;
+    if(v>maxQty){ toast('สต๊อกไม่พอ','err'); return; }
+    closeModal(); addToCart(mode, mid, Number(v.toFixed(3)));
+  };
+  ok.onclick = submit;
+  document.getElementById('wtCancel').onclick = closeModal;
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
+  setTimeout(()=>inp.focus(), 60);
+}
+function addToCart(mode, mid, qty){
+  qty = qty || 1;
   const m = getMaterial(mid); if(!m) return;
   const cart = cartArray(mode);
   const row = cart.find(c=>c.materialId===mid);
   if(mode==='sell'){
     const current = row ? row.qty : 0;
-    if(current+1 > m.stock){ toast('สต๊อกไม่พอ','err'); return; }
+    if(current+qty > m.stock){ toast('สต๊อกไม่พอ','err'); return; }
   }
-  if(row){ row.qty += 1; }
-  else cart.push({materialId:mid, qty:1});
+  if(row){ row.qty = Number((row.qty + qty).toFixed(3)); }
+  else cart.push({materialId:mid, qty});
   saveState(); renderContent(); refreshCartSheetIfOpen(mode);
 }
 function changeCartQty(mode, mid, delta){
@@ -2257,7 +2292,7 @@ function bindContentEvents(){
   const sellCatSel = document.getElementById('sellCatSel');
   if(sellCatSel) sellCatSel.addEventListener('change', ()=>{ state.ui.sellCat = sellCatSel.value; renderContent(); });
 
-  c.querySelectorAll('[data-add]').forEach(b=> b.onclick = ()=> addToCart(b.dataset.cartMode||'buy', b.dataset.add));
+  c.querySelectorAll('[data-add]').forEach(b=> b.onclick = ()=> openWeightModal(b.dataset.cartMode||'buy', b.dataset.add));
   bindCartEvents(c);
   c.querySelectorAll('[data-clear-cart]').forEach(b=> b.onclick = ()=> clearCartAction(b.dataset.clearCart));
   c.querySelectorAll('[data-checkout]').forEach(b=> b.onclick = ()=>{
