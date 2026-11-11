@@ -641,6 +641,10 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 @keyframes hsPop{ from{ opacity:0; transform:scale(0); } to{ opacity:1; transform:scale(1); } }
 @keyframes hsRise{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce){ .hero *{ animation:none !important; } }
+
+/* hero % chip: high contrast on lime / red */
+.hero:not(.loss) .chip, .hero:not(.loss) .chip.up, .hero:not(.loss) .chip.down{ background:#0F1115; color:#D6F53C; padding:5px 12px; }
+.hero.loss .chip, .hero.loss .chip.up, .hero.loss .chip.down{ background:rgba(0,0,0,.28); color:#fff; padding:5px 12px; }
 </style>
 </head>
 <body>
