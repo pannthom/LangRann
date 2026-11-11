@@ -345,6 +345,19 @@
   .mono{ font-variant-numeric:tabular-nums; }
   .receipt-view-wrap{ border-radius:16px; }
 
+  /* ---- login / sign-up ---- */
+  .auth-wrap{ width:100%; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+    background: radial-gradient(60% 50% at 15% 10%, rgba(245,183,59,0.22), transparent 60%), radial-gradient(70% 60% at 90% 100%, rgba(23,105,95,0.28), transparent 60%), var(--paper); }
+  .auth-card{ width:100%; max-width:410px; background:var(--surface); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow-md); padding:30px 28px 24px; animation:popin .2s ease; }
+  .auth-brand{ text-align:center; margin-bottom:20px; }
+  .auth-brand h1{ font-size:21px; }
+  .auth-sub{ font-size:12.5px; color:var(--muted); margin-top:3px; }
+  .auth-tabs{ display:flex; width:100%; margin-bottom:20px; }
+  .auth-tabs .period-tab{ flex:1 1 0; }
+  .auth-note{ background:var(--gold-soft); color:var(--gold); border-radius:12px; padding:10px 14px; font-size:12.5px; margin-bottom:18px; text-align:center; }
+  .auth-error{ min-height:18px; font-size:12.5px; color:var(--brick); margin-bottom:10px; }
+  .auth-foot{ text-align:center; font-size:11.5px; color:var(--muted); margin-top:16px; }
+
   /* bottom app nav (phone) */
   .bottom-nav{ display:none; }
   @media (max-width:760px){
@@ -643,12 +656,15 @@ function render(){
             ${ic(t.icon)}<span>${t.label}</span>
           </button>`).join('')}
       </nav>
-      <div class="sidebar-foot">ข้อมูลบันทึกไว้ในเบราว์เซอร์นี้เท่านั้น</div>
+      <div class="sidebar-foot">${authUser ? `ผู้ใช้: ${esc(authUser.username)}<br>` : ''}ข้อมูลบันทึกไว้ในเบราว์เซอร์นี้เท่านั้น</div>
     </aside>
     <div class="main">
       <div class="topbar">
         <h1>${tabMeta.label}</h1>
-        <div class="stat">กำไรวันนี้ <b class="profit">฿${money(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <div class="stat">กำไรวันนี้ <b class="profit">฿${money(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>
+          <button class="btn small" id="btnLogout" title="ออกจากระบบ">ออกจากระบบ</button>
+        </div>
       </div>
       <div class="content" id="content"></div>
     </div>
@@ -662,6 +678,8 @@ function render(){
   app.querySelectorAll('.tab-btn, .bn-btn').forEach(b=>{
     b.addEventListener('click', ()=>{ state.ui.tab = b.dataset.tab; saveState(); render(); });
   });
+  const btnLogout = document.getElementById('btnLogout');
+  if(btnLogout) btnLogout.onclick = logout;
   renderContent();
 }
 
@@ -2152,8 +2170,144 @@ function bindContentEvents(){
   }
 }
 
+/* ================= AUTH (บัญชีผู้ใช้ — เก็บในเบราว์เซอร์นี้) ================= */
+const AUTH_KEY = 'scrapShopAuth_v1';
+const SESSION_KEY = 'scrapShopSession_v1';
+let authUser = null;
+let authMode = 'login';
+
+function loadAuth(){
+  try{
+    const a = JSON.parse(localStorage.getItem(AUTH_KEY));
+    if(a && Array.isArray(a.users)) return a;
+  }catch(e){}
+  return { users:[] };
+}
+function saveAuth(a){
+  try{ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); return true; }
+  catch(e){ return false; }
+}
+function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+function hexToBytes(hex){
+  const out = new Uint8Array(hex.length/2);
+  for(let i=0;i<out.length;i++) out[i] = parseInt(hex.substr(i*2,2),16);
+  return out;
+}
+async function hashPassword(pw, saltHex){
+  const salt = saltHex ? hexToBytes(saltHex) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt, iterations:150000, hash:'SHA-256' }, key, 256);
+  return { salt: bufToHex(salt), hash: bufToHex(bits) };
+}
+function readSessionName(){
+  try{ return sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY); }
+  catch(e){ return null; }
+}
+function startSession(user, remember){
+  try{
+    sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_KEY);
+    (remember ? localStorage : sessionStorage).setItem(SESSION_KEY, user.username);
+  }catch(e){}
+  authUser = user;
+  render();
+}
+function logout(){
+  try{ sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_KEY); }catch(e){}
+  authUser = null;
+  authMode = 'login';
+  renderAuth();
+}
+
+function renderAuth(){
+  closeModal();
+  const app = document.getElementById('app');
+  const auth = loadAuth();
+  const hasUsers = auth.users.length > 0;
+  if(!hasUsers) authMode = 'signup';
+  const isSignup = authMode === 'signup';
+  const shopName = state.shop.name || 'ร้านรับซื้อของเก่า';
+  app.innerHTML = `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="brand-mark ${state.shop.logo?'has-logo':''}" style="width:64px; height:64px; border-radius:18px; margin:0 auto 12px;">${state.shop.logo ? `<img src="${state.shop.logo}" alt="โลโก้ร้าน">` : esc(shopName.trim()[0]||'ร')}</div>
+          <h1>${esc(shopName)}</h1>
+          <div class="auth-sub">ระบบหลังร้าน</div>
+        </div>
+        ${hasUsers ? `
+        <div class="period-tabs auth-tabs">
+          <button type="button" class="period-tab ${!isSignup?'active':''}" data-auth-mode="login">เข้าสู่ระบบ</button>
+          <button type="button" class="period-tab ${isSignup?'active':''}" data-auth-mode="signup">สมัครสมาชิก</button>
+        </div>` : `<div class="auth-note">ยังไม่มีบัญชีในเครื่องนี้ บัญชีแรกที่สมัครจะเป็นเจ้าของร้าน</div>`}
+        <form id="authForm" autocomplete="on">
+          <div class="field"><label>ชื่อผู้ใช้</label><input id="auUser" autocomplete="username" autocapitalize="none" required></div>
+          <div class="field"><label>รหัสผ่าน${isSignup?' (อย่างน้อย 6 ตัวอักษร)':''}</label><input id="auPass" type="password" autocomplete="${isSignup?'new-password':'current-password'}" required></div>
+          ${isSignup ? `<div class="field"><label>ยืนยันรหัสผ่าน</label><input id="auPass2" type="password" autocomplete="new-password" required></div>` : ''}
+          <label class="printer-toggle" style="margin-bottom:14px;"><input type="checkbox" id="auRemember" checked><span>จดจำฉันไว้ในเครื่องนี้</span></label>
+          <div class="auth-error" id="auError" role="alert"></div>
+          <button class="btn primary" type="submit" id="auSubmit" style="width:100%; justify-content:center; padding:12px;">${isSignup?'สมัครสมาชิก':'เข้าสู่ระบบ'}</button>
+        </form>
+        <div class="auth-foot">บัญชีและข้อมูลร้านเก็บอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น</div>
+      </div>
+    </div>
+  `;
+  app.querySelectorAll('[data-auth-mode]').forEach(b=>{
+    b.onclick = ()=>{ authMode = b.dataset.authMode; renderAuth(); };
+  });
+  const form = document.getElementById('authForm');
+  const errEl = document.getElementById('auError');
+  const submitBtn = document.getElementById('auSubmit');
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
+    errEl.textContent = '';
+    const username = document.getElementById('auUser').value.trim().toLowerCase();
+    const pw = document.getElementById('auPass').value;
+    const remember = document.getElementById('auRemember').checked;
+    if(!(window.crypto && crypto.subtle)){
+      errEl.textContent = 'เบราว์เซอร์นี้ยังเข้ารหัสรหัสผ่านไม่ได้ ให้เปิดเว็บผ่านลิงก์ https';
+      return;
+    }
+    submitBtn.disabled = true;
+    try{
+      const a = loadAuth();
+      if(isSignup){
+        const pw2 = document.getElementById('auPass2').value;
+        if(!/^[\p{L}\p{N}._-]{3,30}$/u.test(username)){ errEl.textContent = 'ชื่อผู้ใช้ต้องยาว 3-30 ตัว ใช้ตัวอักษร ตัวเลข จุด ขีดล่าง หรือขีดกลางเท่านั้น'; return; }
+        if(pw.length < 6){ errEl.textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร'; return; }
+        if(pw !== pw2){ errEl.textContent = 'รหัสผ่านสองช่องไม่ตรงกัน'; return; }
+        if(a.users.some(u=>u.username===username)){ errEl.textContent = 'ชื่อผู้ใช้นี้ถูกใช้แล้ว'; return; }
+        const h = await hashPassword(pw);
+        const user = { id:uid('u'), username, role: a.users.length ? 'staff' : 'owner', salt:h.salt, hash:h.hash, createdAt:new Date().toISOString() };
+        a.users.push(user);
+        if(!saveAuth(a)){ errEl.textContent = 'บันทึกบัญชีไม่สำเร็จ (พื้นที่จัดเก็บเต็มหรือถูกบล็อก)'; return; }
+        startSession(user, remember);
+      }else{
+        const user = a.users.find(u=>u.username===username);
+        if(!user){ errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'; return; }
+        const h = await hashPassword(pw, user.salt);
+        if(h.hash !== user.hash){ errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'; return; }
+        startSession(user, remember);
+      }
+    }catch(err){
+      console.error(err);
+      errEl.textContent = 'เกิดข้อผิดพลาด ลองอีกครั้ง';
+    }finally{
+      submitBtn.disabled = false;
+    }
+  };
+  const first = document.getElementById('auUser');
+  if(first) first.focus();
+}
+
+function boot(){
+  const name = readSessionName();
+  const user = name ? loadAuth().users.find(u=>u.username===name) : null;
+  if(user){ authUser = user; render(); }
+  else renderAuth();
+}
+
 /* ================= INIT ================= */
-render();
+boot();
 })();
 </script>
 </body>
