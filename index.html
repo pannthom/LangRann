@@ -2,7 +2,11 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SPD">
 <title>หลังร้าน — ระบบรับซื้อของเก่า</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -580,6 +584,12 @@
   table.rt td:last-child::before{ margin-right:auto; }
   .table-scroll:has(table.rt){ padding:4px 0 8px; }
 }
+
+/* stop iOS auto-zoom when focusing inputs (needs >=16px) */
+@media (max-width:820px){
+  input, select, textarea, .cart-qty-input, .qty-edit input{ font-size:16px !important; }
+}
+html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 </style>
 </head>
 <body>
