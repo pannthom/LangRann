@@ -538,6 +538,13 @@
     .panel-head{ padding:18px 18px 6px; }
     .chart-card, .mix-card{ padding:18px 16px; border-radius:24px; }
   }
+
+/* v3.1 frosted top bar */
+.topbar{ background:rgba(232,235,241,.72) !important; -webkit-backdrop-filter:saturate(1.6) blur(26px) !important; backdrop-filter:saturate(1.6) blur(26px) !important; }
+@media (max-width:820px){
+  .topbar{ background:rgba(232,235,241,.82) !important; -webkit-backdrop-filter:saturate(1.8) blur(34px) !important; backdrop-filter:saturate(1.8) blur(34px) !important; }
+}
+:root[data-theme="dark"] .topbar, [data-theme="dark"] .topbar{ background:rgba(20,22,28,.78) !important; }
 </style>
 </head>
 <body>
@@ -2149,11 +2156,15 @@ function bindContentEvents(){
   const btnExportDashboardPDF = document.getElementById('btnExportDashboardPDF');
   if(btnExportDashboardPDF) btnExportDashboardPDF.onclick = ()=> exportDashboardPDF(state.ui.dashPeriod || 'day');
 
+  if(state.ui.tab !== 'stock') window.__stockTyping = false;
   // stock search
   const stockSearch = document.getElementById('stockSearch');
   if(stockSearch){
-    stockSearch.addEventListener('input', ()=>{ state.ui.stockQ = stockSearch.value; renderContent(); });
-    stockSearch.focus(); stockSearch.selectionStart = stockSearch.selectionEnd = stockSearch.value.length;
+    stockSearch.addEventListener('input', ()=>{ state.ui.stockQ = stockSearch.value; window.__stockTyping = true; renderContent(); });
+    // refocus only while the user is actively typing — never steal focus (pops up keyboard) on tab open
+    if(window.__stockTyping){
+      stockSearch.focus(); stockSearch.selectionStart = stockSearch.selectionEnd = stockSearch.value.length;
+    }
   }
   const addBtn = document.getElementById('btnAddProduct');
   if(addBtn) addBtn.onclick = ()=> openProductModal(null);
