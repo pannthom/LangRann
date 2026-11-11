@@ -9,17 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Kanit:wght@400;500;600;700&family=Prompt:wght@400;500;600;700&family=Mitr:wght@400;500;600;700&family=Chonburi&family=Pattaya&family=Charmonman:wght@400;700&family=Sriracha&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F2F5F4; --paper-blur:rgba(242,245,244,0.82);
-    --ink:#12201C; --muted:#5F716B; --surface:#FFFFFF; --line:#E1E8E5;
-    --teal:#0F4C45; --teal-light:#17695F; --tealsoft:#E2F1EE;
-    --gold:#9A5B00; --gold-soft:#FFF1D1; --amber:#F5B73B;
-    --brick:#C23B2B; --brick-soft:#FDE9E5;
-    --sage:#237A52; --sage-soft:#E0F3E8;
-    --hover:#F0F6F4;
+    --paper:#E8EBF1; --paper-blur:rgba(232,235,241,0.86);
+    --ink:#0F1115; --muted:#6B7280; --surface:#FFFFFF; --line:#E3E7EE;
+    --teal:#0B4DDB; --teal-light:#2D6AF2; --tealsoft:#E5EDFE;
+    --gold:#8A5A00; --gold-soft:#FFF3D6; --amber:#D6F53C;
+    --lime:#D6F53C; --lime-deep:#B5DB10; --peri:#9DB6F7;
+    --brick:#D92D20; --brick-soft:#FEE9E7;
+    --sage:#0E8F4B; --sage-soft:#DDF7E8;
+    --profit:#0E8F4B; --loss:#D92D20;
+    --hover:#F1F4F9;
     --font-display:"Prompt","IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
-    --radius:16px; --radius-sm:10px;
-    --shadow-sm:0 1px 2px rgba(14,48,42,0.06), 0 2px 8px -2px rgba(14,48,42,0.06);
-    --shadow-md:0 12px 32px -12px rgba(14,48,42,0.28);
+    --radius:28px; --radius-sm:14px;
+    --shadow-sm:0 1px 2px rgba(20,30,60,0.04), 0 6px 20px -8px rgba(20,30,60,0.10);
+    --shadow-md:0 18px 40px -16px rgba(20,30,60,0.28);
     color-scheme:light;
     box-sizing:border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -27,28 +29,30 @@
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --paper:#0A1311; --paper-blur:rgba(10,19,17,0.82);
-      --ink:#E7F0ED; --muted:#8CA39C; --surface:#121F1C; --line:#1F332E;
-      --teal:#1B7468; --teal-light:#23917F; --tealsoft:#15302B;
-      --gold:#F2B94B; --gold-soft:#2C2713; --amber:#F2B94B;
-      --brick:#F0705B; --brick-soft:#33201C;
-      --sage:#5FC99B; --sage-soft:#14301F;
-      --hover:#16261F;
+      --paper:#0C0F14; --paper-blur:rgba(12,15,20,0.86);
+      --ink:#EEF1F6; --muted:#98A2B3; --surface:#161A21; --line:#252B35;
+      --teal:#3C78FF; --teal-light:#5B8EFF; --tealsoft:#18274A;
+      --gold:#F2B94B; --gold-soft:#2C2713; --amber:#D6F53C;
+      --brick:#F0705B; --brick-soft:#3A1F1B;
+      --sage:#4ADE80; --sage-soft:#12301F;
+      --profit:#4ADE80; --loss:#F87171;
+      --hover:#1C212B;
       --shadow-sm:0 1px 2px rgba(0,0,0,0.4);
-      --shadow-md:0 12px 32px -12px rgba(0,0,0,0.7);
+      --shadow-md:0 18px 40px -16px rgba(0,0,0,0.7);
       color-scheme:dark;
     }
   }
   :root[data-theme="dark"]{
-    --paper:#0A1311; --paper-blur:rgba(10,19,17,0.82);
-    --ink:#E7F0ED; --muted:#8CA39C; --surface:#121F1C; --line:#1F332E;
-    --teal:#1B7468; --teal-light:#23917F; --tealsoft:#15302B;
-    --gold:#F2B94B; --gold-soft:#2C2713; --amber:#F2B94B;
-    --brick:#F0705B; --brick-soft:#33201C;
-    --sage:#5FC99B; --sage-soft:#14301F;
-    --hover:#16261F;
+    --paper:#0C0F14; --paper-blur:rgba(12,15,20,0.86);
+    --ink:#EEF1F6; --muted:#98A2B3; --surface:#161A21; --line:#252B35;
+    --teal:#3C78FF; --teal-light:#5B8EFF; --tealsoft:#18274A;
+    --gold:#F2B94B; --gold-soft:#2C2713; --amber:#D6F53C;
+    --brick:#F0705B; --brick-soft:#3A1F1B;
+    --sage:#4ADE80; --sage-soft:#12301F;
+    --profit:#4ADE80; --loss:#F87171;
+    --hover:#1C212B;
     --shadow-sm:0 1px 2px rgba(0,0,0,0.4);
-    --shadow-md:0 12px 32px -12px rgba(0,0,0,0.7);
+    --shadow-md:0 18px 40px -16px rgba(0,0,0,0.7);
     color-scheme:dark;
   }
   html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -398,6 +402,142 @@
     .card .value{ font-size:23px; }
     .dash-brand{ padding:16px 18px; }
   }
+
+  /* ================= v3 DESIGN: soft cards, blue + lime + black ================= */
+  body{ font-size:15px; }
+  #app{ padding:0; }
+  .sidebar{
+    background:var(--surface); color:var(--ink); border-radius:32px; margin:16px 0 16px 16px; height:calc(100vh - 32px);
+    box-shadow:var(--shadow-sm); padding:22px 14px;
+  }
+  .brand{ border-bottom:1px solid var(--line); }
+  .brand-mark{ background:var(--lime); color:#111; box-shadow:none; border-radius:16px; }
+  .brand-mark.has-logo{ background:#fff; border:1px solid var(--line); }
+  .brand-text .sub{ color:var(--muted); opacity:1; }
+  .tab-btn{ color:var(--muted); border-radius:999px; padding:12px 16px; font-weight:500; }
+  .tab-btn:hover{ background:var(--hover); color:var(--ink); }
+  .tab-btn.active{ background:var(--lime); color:#111; font-weight:600; box-shadow:none; }
+  .tab-btn.active::before{ display:none; }
+  .tab-btn.active svg{ opacity:1; }
+  .sidebar-foot{ color:var(--muted); opacity:1; }
+  .topbar{ background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; border-bottom:none; padding-bottom:6px; }
+  .topbar h1{ font-size:28px; letter-spacing:-0.02em; }
+  .topbar .stat{ border-radius:999px; padding:9px 16px; font-size:13px; }
+  .topbar .stat b.profit{ color:var(--profit); }
+  .topbar .stat b.loss{ color:var(--loss); }
+  .content{ padding-top:18px; }
+  .panel, .card, .cart-panel{ border:none; box-shadow:var(--shadow-sm); }
+  .panel-head{ border-bottom:none; padding:22px 26px 8px; }
+  .panel-head h2{ font-size:18px; }
+  thead th{ background:transparent; padding:10px 22px; }
+  tbody td{ padding:14px 22px; border-bottom:1px solid var(--line); }
+  .card::after{ display:none; }
+  .btn{ border-radius:999px; padding:10px 18px; }
+  .btn.small{ padding:7px 14px; }
+  .btn.primary{ background:#0F1115; color:#fff; box-shadow:none; border-color:transparent; }
+  .btn.primary:hover{ background:#262A33; filter:none; }
+  :root[data-theme="dark"] .btn.primary{ background:var(--lime); color:#111; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn.primary{ background:var(--lime); color:#111; } }
+  .btn.gold{ background:var(--lime); color:#111; box-shadow:none; }
+  .btn.gold:hover{ background:var(--lime-deep); filter:none; }
+  .period-tabs{ background:var(--hover); border:none; padding:4px; }
+  .period-tab{ padding:8px 18px; }
+  .period-tab.active{ background:#0F1115; color:#fff; box-shadow:none; }
+  .p-card{ border:none; border-radius:24px; }
+  .p-card .pr{ color:var(--ink); }
+  .p-card .cat{ background:var(--tealsoft); color:var(--teal); }
+  .p-thumb{ border-radius:18px; border:none; }
+  .cart-total .val{ color:var(--ink); }
+  .cart-panel{ border-radius:28px; }
+  .cart-head{ background:transparent; }
+  .toast{ background:#0F1115; border-radius:999px; }
+  .toast.err{ background:var(--loss); }
+  .tag{ background:var(--hover); color:var(--muted); }
+  .tag.sage{ background:var(--sage-soft); color:var(--sage); }
+  .tag.brick{ background:var(--brick-soft); color:var(--brick); }
+  .modal{ border-radius:28px; }
+  .modal.sheet{ border-radius:28px 28px 0 0; }
+  .auth-wrap{ background:var(--paper); }
+  .auth-card{ border:none; border-radius:32px; }
+  .auth-note{ background:var(--lime); color:#111; }
+  .bottom-nav{ border:none; }
+  .bn-btn.active{ background:var(--lime); color:#111; }
+  .cart-summary-bar{ background:#0F1115 !important; }
+  .cart-summary-bar .csb-cta{ background:var(--lime) !important; color:#111 !important; }
+  .dash-brand{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); border-radius:28px; padding:14px 22px; margin-bottom:16px; }
+  .dash-brand img{ height:44px; background:transparent; padding:0; }
+  .dash-brand-sub{ color:var(--muted); }
+  .dash-brand-sub b{ color:var(--ink); }
+  .pl-up{ color:var(--profit) !important; }
+  .pl-down{ color:var(--loss) !important; }
+
+  /* ---- dashboard v3 ---- */
+  .dash-grid{ display:grid; grid-template-columns:1.25fr 1fr 1fr; grid-auto-rows:auto; gap:16px; margin-bottom:16px; }
+  .stat-card{ background:var(--surface); border-radius:28px; padding:20px 22px; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; min-width:0; }
+  .sc-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .sc-label{ font-size:13.5px; color:var(--muted); }
+  .sc-icon{ width:40px; height:40px; border-radius:14px; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .sc-icon svg{ width:19px; height:19px; }
+  .sc-icon.dark{ background:#0F1115; color:#fff; }
+  .sc-icon.red{ background:var(--loss); }
+  .sc-icon.lime{ background:var(--lime); color:#111; }
+  .sc-value{ font-family:var(--font-display); font-size:32px; font-weight:600; letter-spacing:-0.03em; margin-top:16px; line-height:1.1; }
+  .sc-sub{ font-size:12.5px; color:var(--muted); margin-top:6px; }
+  .hero{ grid-row:span 2; justify-content:space-between; padding:26px 28px; background:linear-gradient(145deg,#DDF84F 0%,#C6EE17 100%); color:#10130A; }
+  .hero.loss{ background:linear-gradient(145deg,#EC4B3C 0%,#C4261A 100%); color:#fff; }
+  .hero .sc-label{ color:inherit; opacity:.75; font-size:14px; }
+  .hero .sc-value{ font-size:50px; margin-top:10px; }
+  .hero .sc-sub{ color:inherit; opacity:.75; }
+  .hero-badge{ display:inline-flex; align-items:center; gap:6px; background:rgba(15,17,21,.9); color:#fff; padding:7px 14px; border-radius:999px; font-size:13px; font-weight:600; }
+  .hero.loss .hero-badge{ background:#fff; color:#C4261A; }
+  .hero-formula{ margin-top:16px; background:rgba(255,255,255,.55); border-radius:18px; padding:12px 16px; font-size:13px; line-height:1.7; }
+  .hero.loss .hero-formula{ background:rgba(0,0,0,.18); }
+  .hero-formula .row{ display:flex; justify-content:space-between; gap:10px; }
+  .hero-formula .row b{ font-variant-numeric:tabular-nums; }
+  .chip{ display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+  .chip.up{ background:var(--sage-soft); color:var(--profit); }
+  .chip.down{ background:var(--brick-soft); color:var(--loss); }
+  .hero .chip{ background:rgba(255,255,255,.7); }
+  .hero.loss .chip{ background:rgba(255,255,255,.2); color:#fff; }
+  .dash-main{ display:grid; grid-template-columns:1.7fr 1fr; gap:16px; margin-bottom:16px; align-items:stretch; }
+  .chart-card{ background:var(--surface); border-radius:28px; padding:22px 24px 18px; box-shadow:var(--shadow-sm); min-width:0; }
+  .chart-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  .chart-head h2{ font-size:18px; }
+  .chart-sub{ font-size:12.5px; color:var(--muted); margin-bottom:10px; }
+  .chart-cols{ display:flex; gap:8px; overflow-x:auto; padding-top:6px; }
+  .cc{ flex:1 1 0; min-width:34px; display:flex; flex-direction:column; align-items:center; }
+  .cc-pos, .cc-neg{ width:100%; display:flex; flex-direction:column; align-items:center; position:relative; }
+  .cc-pos{ justify-content:flex-end; background:var(--hover); border-radius:999px 999px 0 0; max-width:46px; }
+  .cc-neg{ justify-content:flex-start; max-width:46px; }
+  .cc-bar{ width:100%; border-radius:999px; background:#1B1E25; min-height:6px; }
+  .cc.current .cc-bar.pos{ background:var(--teal); }
+  .cc-bar.neg{ background:var(--loss); border-radius:0 0 999px 999px; }
+  .cc-zero{ width:100%; height:0; border-top:1.5px dashed var(--line); margin:0; }
+  .cc-pill{ position:absolute; top:-30px; right:-2px; background:#0F1115; color:#fff; font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; z-index:2; }
+  .cc-pill.loss{ background:var(--loss); }
+  .cc-label{ font-size:11px; color:var(--muted); margin-top:9px; white-space:nowrap; }
+  .cc-val{ font-size:11px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cc.current .cc-label{ color:var(--ink); font-weight:600; }
+  .mix-card{ background:var(--surface); border-radius:28px; padding:22px 24px; box-shadow:var(--shadow-sm); min-width:0; }
+  .mix-card h2{ font-size:18px; margin-bottom:4px; }
+  .mix-row{ margin-top:16px; }
+  .mix-top{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; margin-bottom:7px; }
+  .mix-top .nm{ font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mix-top .amt{ font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mix-track{ height:9px; border-radius:999px; background:var(--hover); overflow:hidden; }
+  .mix-fill{ height:100%; border-radius:999px; }
+  .mix-empty{ color:var(--muted); font-size:13px; padding:26px 0 8px; text-align:center; }
+  @media (max-width:1100px){ .dash-grid{ grid-template-columns:1fr 1fr; } .hero{ grid-column:1 / -1; grid-row:auto; } .dash-main{ grid-template-columns:1fr; } }
+  @media (max-width:760px){
+    .sidebar{ display:none; }
+    .dash-grid{ gap:12px; }
+    .stat-card{ padding:16px 16px; border-radius:24px; }
+    .sc-value{ font-size:24px; margin-top:12px; }
+    .hero .sc-value{ font-size:40px; }
+    .topbar h1{ font-size:24px; }
+    .panel-head{ padding:18px 18px 6px; }
+    .chart-card, .mix-card{ padding:18px 16px; border-radius:24px; }
+  }
 </style>
 </head>
 <body>
@@ -594,7 +734,7 @@ function render(){
         <h1>${tabMeta.label}</h1>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           ${isAdmin()
-            ? `<div class="stat">กำไรวันนี้ <b class="profit">฿${money(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>`
+            ? `<div class="stat">กำไรขั้นต้นวันนี้ <b class="${todayProfit<0?'loss':'profit'}">${plMoney(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>`
             : `<div class="stat">${esc(profile ? profile.username : '')} · รับซื้อวันนี้ <b>${todayPurchases.length}</b> รายการ</div>`}
           <button class="btn small" id="btnLogout" title="ออกจากระบบ">ออกจากระบบ</button>
         </div>
@@ -628,6 +768,7 @@ function renderContent(){
   const cartShowing = (state.ui.tab==='pos' && state.cart.length>0) || (state.ui.tab==='sell' && state.sellCart.length>0);
   c.classList.toggle('has-cart-bar', cartShowing);
   bindContentEvents();
+  const chartCols = c.querySelector('.chart-cols'); if(chartCols) chartCols.scrollLeft = chartCols.scrollWidth;
   if(state.ui.tab==='settings') loadUsersPanel();
 }
 
@@ -672,7 +813,9 @@ function buildBuckets(period){
   }
   return buckets.map(b=>{
     const list = purchasesInRange(b.start, b.end);
-    return { ...b, profit: sumProfit(list), cost: sumCost(list), weight: sumWeight(list), count: list.length, list };
+    const profit = sumProfit(list);
+    const overhead = overheadForRange(b.start, b.end);
+    return { ...b, profit, overhead, net: profit - overhead, cost: sumCost(list), weight: sumWeight(list), count: list.length, list };
   });
 }
 function breakdownByMaterial(list){
@@ -688,61 +831,144 @@ const PERIOD_LABEL = { day:'วันนี้', week:'สัปดาห์น�
 function getDashboardData(period){
   const buckets = buildBuckets(period);
   const current = buckets[buckets.length-1];
-  const maxAbs = Math.max(1, ...buckets.map(b=>Math.abs(b.profit)));
+  const maxAbs = Math.max(1, ...buckets.map(b=>Math.abs(b.net)));
   const breakdown = breakdownByMaterial(current.list);
   const todayPurchases = purchasesInRange(startOfDay(new Date()), addDays(startOfDay(new Date()),1));
   const totalStockValue = state.materials.reduce((a,m)=>a+m.buyPrice*m.stock,0);
   const highStock = state.materials.filter(m=>m.stock>=state.shop.highStockAlert).sort((a,b)=>b.stock-a.stock);
   const overhead = overheadForRange(current.start, current.end);
   const netProfit = current.profit - overhead;
-  return { buckets, current, maxAbs, breakdown, todayPurchases, totalStockValue, highStock, overhead, netProfit };
+  const prev = buckets.length > 1 ? buckets[buckets.length-2] : null;
+  const salesList = state.sales.filter(x=>{ const d=new Date(x.date); return d>=current.start && d<current.end; });
+  const salesTotal = salesList.reduce((a,x)=>a+x.totalAmount,0);
+  return { buckets, current, prev, maxAbs, breakdown, todayPurchases, totalStockValue, highStock, overhead, netProfit, salesList, salesTotal };
+}
+
+const PREV_LABEL = { day:'เมื่อวาน', week:'สัปดาห์ก่อน', month:'เดือนก่อน', year:'ปีก่อน' };
+function plClass(n){ return n<0 ? 'pl-down' : 'pl-up'; }
+function plMoney(n){ n=Number(n||0); return (n<0?'−':'+')+'฿'+money(Math.abs(n)); }
+function shortMoney(n){
+  const a = Math.abs(n), sign = n<0?'−':'';
+  if(a>=1000000) return sign+(a/1000000).toFixed(1)+'M';
+  if(a>=1000) return sign+(a/1000).toFixed(1)+'k';
+  return sign+String(Math.round(a));
+}
+const MIX_COLORS = ['#0B4DDB','#C6EE17','#1B1E25','#9DB6F7','#B9C0CC','#7C8AA5'];
+
+function chartHTML(buckets, maxAbs){
+  const hasNeg = buckets.some(b=>b.net<0);
+  const POS_H = hasNeg ? 120 : 190, NEG_H = hasNeg ? 96 : 0;
+  const maxPos = Math.max(1, ...buckets.map(b=>Math.max(0,b.net)));
+  const maxNeg = Math.max(1, ...buckets.map(b=>Math.max(0,-b.net)));
+  return `<div class="chart-cols">` + buckets.map(b=>{
+    const pos = b.net>0 ? Math.max(8, Math.round(b.net/maxPos*(POS_H-26))) : 0;
+    const neg = b.net<0 ? Math.max(8, Math.round(-b.net/maxNeg*(NEG_H-34))) : 0;
+    const pill = b.current ? `<div class="cc-pill ${b.net<0?'loss':''}" style="top:${b.net<0?(neg+6):(POS_H-pos-30)}px;">${b.net<0?'ขาดทุน ':'กำไร '}฿${shortMoney(Math.abs(b.net))}</div>` : '';
+    return `
+      <div class="cc ${b.current?'current':''}" title="${esc(b.label)}: ${plMoney(b.net)}">
+        <div class="cc-pos" style="height:${POS_H}px;">
+          ${b.net>0 ? `<div class="cc-bar pos" style="height:${pos}px;"></div>` : ''}
+          ${b.net>=0 ? pill : ''}
+        </div>
+        ${hasNeg ? `<div class="cc-zero"></div><div class="cc-neg" style="height:${NEG_H}px;">
+          ${b.net<0 ? `<div class="cc-bar neg" style="height:${neg}px;"></div>` : ''}
+          ${b.net<0 ? pill : ''}
+        </div>` : ''}
+        <div class="cc-label">${esc(b.label)}</div>
+        <div class="cc-val ${plClass(b.net)}">${b.net===0?'0':(b.net<0?'−':'+')+shortMoney(Math.abs(b.net))}</div>
+      </div>`;
+  }).join('') + `</div>`;
 }
 
 function viewDashboard(){
   const period = state.ui.dashPeriod || 'day';
-  const { buckets, current, maxAbs, breakdown, todayPurchases, totalStockValue, highStock, overhead, netProfit } = getDashboardData(period);
+  const { buckets, current, prev, maxAbs, breakdown, totalStockValue, highStock, overhead, netProfit, salesTotal, salesList } = getDashboardData(period);
+  const isLoss = netProfit < 0;
+  const prevNet = prev ? prev.net : null;
+  let delta = '';
+  if(prevNet !== null && prevNet !== 0){
+    const pct = (netProfit - prevNet) / Math.abs(prevNet) * 100;
+    const up = pct >= 0;
+    delta = `<span class="chip ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(pct).toFixed(1)}% เทียบ${PREV_LABEL[period]}</span>`;
+  }
+  const mixTotal = breakdown.reduce((a,x)=>a+Math.abs(x.profit),0) || 1;
+  const mix = breakdown.slice().sort((a,b)=>Math.abs(b.profit)-Math.abs(a.profit)).slice(0,6);
 
   return `
     ${state.shop.logo ? `
     <div class="dash-brand">
       <img src="${state.shop.logo}" alt="โลโก้ร้าน">
-      <div><div class="dash-brand-name">${esc(state.shop.name)}</div><div class="dash-brand-sub">กำไรสุทธิ${PERIOD_LABEL[period]}: <b>฿${money(netProfit)}</b></div></div>
+      <div><div class="dash-brand-name">${esc(state.shop.name)}</div></div>
     </div>` : ''}
-    <div class="cards">
-      <div class="card"><div class="label">กำไรวันนี้</div><div class="value gold">฿${money(sumProfit(todayPurchases))}</div><div class="sub">${todayPurchases.length} รายการรับซื้อ</div></div>
-      <div class="card"><div class="label">จ่ายให้ผู้ขายวันนี้</div><div class="value">฿${money(sumCost(todayPurchases))}</div><div class="sub">รวมทุกประเภทของเก่า</div></div>
-      <div class="card"><div class="label">น้ำหนัก/จำนวนที่รับซื้อวันนี้</div><div class="value">${formatQty(sumWeight(todayPurchases))}</div><div class="sub">กก. / ชิ้น (รวมทุกหน่วย)</div></div>
-      <div class="card"><div class="label">มูลค่าสต๊อกที่ถืออยู่</div><div class="value">฿${money(totalStockValue)}</div><div class="sub">คิดตามราคารับซื้อ</div></div>
-    </div>
 
-    <div class="panel" style="margin-bottom:18px;">
-      <div class="panel-head">
-        <h2>กำไรตามช่วงเวลา</h2>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <div class="period-tabs">
-            <button class="period-tab ${period==='day'?'active':''}" data-period="day">รายวัน</button>
-            <button class="period-tab ${period==='week'?'active':''}" data-period="week">รายสัปดาห์</button>
-            <button class="period-tab ${period==='month'?'active':''}" data-period="month">รายเดือน</button>
-            <button class="period-tab ${period==='year'?'active':''}" data-period="year">รายปี</button>
+    <div class="dash-grid">
+      <div class="stat-card hero ${isLoss?'loss':''}">
+        <div>
+          <div class="sc-top">
+            <div class="sc-label">${isLoss?'ขาดทุนสุทธิ':'กำไรสุทธิ'}${PERIOD_LABEL[period]}</div>
+            <span class="hero-badge">${isLoss?'▼ ขาดทุน':'▲ กำไร'}</span>
           </div>
-          <button class="btn primary small" id="btnExportDashboardPDF">${ic('download')} Export PDF</button>
+          <div class="sc-value">${isLoss?'−':''}฿${money(Math.abs(netProfit))}</div>
+          <div style="margin-top:10px;">${delta}</div>
+        </div>
+        <div class="hero-formula">
+          <div class="row"><span>กำไรขั้นต้น (ส่วนต่างราคาขาย−ซื้อ)</span><b>฿${money(current.profit)}</b></div>
+          <div class="row"><span>หัก ต้นทุนแฝง</span><b>−฿${money(overhead)}</b></div>
+          <div class="row" style="border-top:1px solid rgba(0,0,0,.15); margin-top:4px; padding-top:4px;"><span>${isLoss?'ขาดทุนสุทธิ':'กำไรสุทธิ'}</span><b>${isLoss?'−':''}฿${money(Math.abs(netProfit))}</b></div>
         </div>
       </div>
-      <div class="bar-chart">
-        ${buckets.map(b=>`
-          <div class="bar-col ${b.current?'current':''} ${b.profit<0?'negative':''}">
-            <div class="bar-value">฿${b.profit>=1000? (b.profit/1000).toFixed(1)+'k' : money(b.profit).replace('.00','')}</div>
-            <div class="bar" style="height:${Math.max(4, Math.round(Math.abs(b.profit)/maxAbs*140))}px;"></div>
-            <div class="bar-label">${b.label}</div>
-          </div>`).join('')}
+
+      <div class="stat-card">
+        <div class="sc-top"><div class="sc-label">กำไรขั้นต้น</div><div class="sc-icon lime">${ic('chart')}</div></div>
+        <div class="sc-value ${plClass(current.profit)}">฿${money(current.profit)}</div>
+        <div class="sc-sub">จากรับซื้อ ${current.count} รายการ</div>
       </div>
-      <div style="padding:4px 18px 4px; font-size:12.5px; color:var(--muted);">
-        กำไรขั้นต้น${PERIOD_LABEL[period]}: <b style="color:var(--ink);">฿${money(current.profit)}</b>
-        &nbsp;·&nbsp; รับซื้อ ${current.count} รายการ &nbsp;·&nbsp; น้ำหนักรวม ${formatQty(current.weight)}
+      <div class="stat-card">
+        <div class="sc-top"><div class="sc-label">ต้นทุนแฝง</div><div class="sc-icon red">${ic('cash')}</div></div>
+        <div class="sc-value pl-down">−฿${money(overhead)}</div>
+        <div class="sc-sub">ค่าแรง ค่าไฟ ค่าน้ำมัน ฯลฯ</div>
       </div>
-      <div style="padding:0 18px 16px; font-size:12.5px; color:var(--muted);">
-        หักต้นทุนแฝง <b style="color:var(--brick);">−฿${money(overhead)}</b>
-        &nbsp;=&nbsp; กำไรสุทธิ <b style="color:var(--gold); font-size:14px;">฿${money(netProfit)}</b>
+      <div class="stat-card">
+        <div class="sc-top"><div class="sc-label">จ่ายซื้อของ</div><div class="sc-icon dark">${ic('scale')}</div></div>
+        <div class="sc-value">฿${money(current.cost)}</div>
+        <div class="sc-sub">น้ำหนักรวม ${formatQty(current.weight)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-top"><div class="sc-label">ยอดขายออก</div><div class="sc-icon">${ic('tag')}</div></div>
+        <div class="sc-value">฿${money(salesTotal)}</div>
+        <div class="sc-sub">${salesList.length} รายการขาย</div>
+      </div>
+    </div>
+
+    <div class="dash-main">
+      <div class="chart-card">
+        <div class="chart-head">
+          <h2>กำไร/ขาดทุนสุทธิ</h2>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <div class="period-tabs">
+              <button class="period-tab ${period==='day'?'active':''}" data-period="day">วัน</button>
+              <button class="period-tab ${period==='week'?'active':''}" data-period="week">สัปดาห์</button>
+              <button class="period-tab ${period==='month'?'active':''}" data-period="month">เดือน</button>
+              <button class="period-tab ${period==='year'?'active':''}" data-period="year">ปี</button>
+            </div>
+            <button class="btn primary small" id="btnExportDashboardPDF">${ic('download')} PDF</button>
+          </div>
+        </div>
+        <div class="chart-sub">แท่งเหนือเส้น = กำไร · แท่งสีแดงใต้เส้น = ขาดทุน (หักต้นทุนแฝงแล้ว)</div>
+        ${chartHTML(buckets, maxAbs)}
+      </div>
+
+      <div class="mix-card">
+        <h2>กำไรตามประเภทของเก่า</h2>
+        <div class="sc-sub" style="margin-top:0;">${PERIOD_LABEL[period]} · เรียงตามกำไรมากสุด</div>
+        ${mix.length ? mix.map((m,i)=>{
+          const pct = Math.abs(m.profit)/mixTotal*100;
+          const color = m.profit<0 ? 'var(--loss)' : MIX_COLORS[i % MIX_COLORS.length];
+          return `<div class="mix-row">
+            <div class="mix-top"><span class="nm">${esc(m.name)}</span><span class="amt ${plClass(m.profit)}">${plMoney(m.profit)}</span></div>
+            <div class="mix-track"><div class="mix-fill" style="width:${Math.max(3,pct).toFixed(1)}%; background:${color};"></div></div>
+          </div>`;
+        }).join('') : `<div class="mix-empty">ยังไม่มีรายการรับซื้อในช่วงนี้</div>`}
       </div>
     </div>
 
@@ -757,7 +983,7 @@ function viewDashboard(){
               <td class="pname">${esc(b.name)}</td>
               <td class="num">${formatQty(b.qty)} ${esc(b.unit)}</td>
               <td class="num">฿${money(b.cost)}</td>
-              <td class="num" style="color:var(--gold); font-weight:600;">฿${money(b.profit)}</td>
+              <td class="num ${plClass(b.profit)}" style="font-weight:600;">${plMoney(b.profit)}</td>
             </tr>`).join('')}
         </tbody>
       </table></div>` : `<div class="empty">${ic('scale')}<div>ยังไม่มีรายการรับซื้อในช่วงนี้</div></div>`}
@@ -835,12 +1061,12 @@ function dashboardReportHTML(period){
         <div class="dr-card"><div class="dr-card-lbl">จำนวนรายการขายออก</div><div class="dr-card-val">${salesInRange.length}</div></div>
       </div>
 
-      <div class="dr-section-title">กำไรย้อนหลัง</div>
+      <div class="dr-section-title">กำไร/ขาดทุนสุทธิย้อนหลัง (หักต้นทุนแฝงแล้ว)</div>
       <div class="dr-bar-chart">
         ${buckets.map(b=>`
           <div class="dr-bar-col">
-            <div class="dr-bar-value">฿${b.profit>=1000? (b.profit/1000).toFixed(1)+'k' : money(b.profit).replace('.00','')}</div>
-            <div class="dr-bar ${b.current?'current':''} ${b.profit<0?'negative':''}" style="height:${Math.max(4, Math.round(Math.abs(b.profit)/maxAbs*110))}px;"></div>
+            <div class="dr-bar-value">฿${b.net>=1000||b.net<=-1000? (b.net/1000).toFixed(1)+'k' : money(b.net).replace('.00','')}</div>
+            <div class="dr-bar ${b.current?'current':''} ${b.net<0?'negative':''}" style="height:${Math.max(4, Math.round(Math.abs(b.net)/maxAbs*110))}px;"></div>
             <div class="dr-bar-label">${b.label}</div>
           </div>`).join('')}
       </div>
@@ -1508,7 +1734,7 @@ function viewPurchaseHistory(){
               <td>${p.sellerName ? esc(p.sellerName) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="num">${p.items.length}</td>
               <td class="num mono">฿${money(p.totalCost)}</td>
-              ${isAdmin()?`<td class="num mono" style="color:var(--gold);">฿${money(p.totalProfit)}</td>`:''}
+              ${isAdmin()?`<td class="num mono ${plClass(p.totalProfit)}" style="font-weight:600;">${plMoney(p.totalProfit)}</td>`:''}
               <td class="num" onclick="event.stopPropagation()">
                 <button class="btn small icon-only" data-view-receipt="${p.id}" title="ดูใบรับซื้อ">${ic('receipt')}</button>
                 <button class="btn small icon-only" data-pdf-receipt="${p.id}" title="ดาวน์โหลด PDF">${ic('download')}</button>
