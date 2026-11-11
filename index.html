@@ -407,6 +407,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
 "use strict";
@@ -452,7 +453,9 @@ function fontCss(id){
 }
 
 /* ================= STATE ================= */
-const STORAGE_KEY = 'scrapShopBackofficeState_v1';
+/* ข้อมูลร้าน (สินค้า ราคา ใบเสร็จ ตั้งค่า) อยู่บนเซิร์ฟเวอร์ Supabase ทุกเครื่องเห็นชุดเดียวกัน
+   ในเครื่องเก็บเฉพาะตะกร้าที่ยังไม่ได้บันทึกและสถานะหน้าจอ */
+const LEGACY_KEY = 'scrapShopBackofficeState_v1';
 
 function seedMaterials(){
   return [
@@ -471,128 +474,53 @@ function seedMaterials(){
   ];
 }
 
-function seedPurchases(materials){
-  // Generate a light purchase history over the last ~24 days so the profit
-  // dashboard has something to show on first load.
-  const purchases = [];
-  let no = 1;
-  const today = new Date();
-  for(let dayOffset = 23; dayOffset >= 0; dayOffset--){
-    const day = new Date(today);
-    day.setDate(day.getDate() - dayOffset);
-    const txCount = 1 + Math.floor(Math.random()*3); // 1-3 transactions/day
-    for(let t=0; t<txCount; t++){
-      const itemCount = 1 + Math.floor(Math.random()*3);
-      const chosen = [...materials].sort(()=>Math.random()-0.5).slice(0, itemCount);
-      const items = chosen.map(m=>{
-        const isPiece = m.unit === 'ลูก';
-        const qty = isPiece ? (1 + Math.floor(Math.random()*3)) : Number((0.5 + Math.random()*18).toFixed(2));
-        const cost = Number((qty*m.buyPrice).toFixed(2));
-        const profit = Number((qty*(m.sellPrice - m.buyPrice)).toFixed(2));
-        return { name:m.name, sku:m.sku, unit:m.unit, qty, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost, profit };
-      });
-      const totalCost = Number(items.reduce((a,i)=>a+i.cost,0).toFixed(2));
-      const totalProfit = Number(items.reduce((a,i)=>a+i.profit,0).toFixed(2));
-      const hour = 9 + Math.floor(Math.random()*8);
-      const minute = Math.floor(Math.random()*60);
-      const date = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
-      purchases.push({ id:uid('pu'), no, date: date.toISOString(), sellerName:'', sellerPhone:'', items, totalCost, totalProfit });
-      no++;
-    }
-  }
-  return { purchases, nextReceiptNo: no };
+function defaultShop(){
+  return { name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo:null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 };
 }
-
-function seedSales(materials){
-  const sales = [];
-  let no = 1;
-  const today = new Date();
-  for(let dayOffset = 23; dayOffset >= 0; dayOffset--){
-    if(Math.random() < 0.4) continue; // not every day has a sell-out
-    const day = new Date(today);
-    day.setDate(day.getDate() - dayOffset);
-    const itemCount = 1 + Math.floor(Math.random()*2);
-    const chosen = [...materials].sort(()=>Math.random()-0.5).slice(0, itemCount);
-    const items = chosen.map(m=>{
-      const isPiece = m.unit === 'ลูก';
-      const qty = isPiece ? (1 + Math.floor(Math.random()*2)) : Number((1 + Math.random()*12).toFixed(2));
-      const amount = Number((qty*m.sellPrice).toFixed(2));
-      return { name:m.name, sku:m.sku, unit:m.unit, qty, sellPrice:m.sellPrice, amount };
-    });
-    const totalAmount = Number(items.reduce((a,i)=>a+i.amount,0).toFixed(2));
-    const hour = 10 + Math.floor(Math.random()*7);
-    const minute = Math.floor(Math.random()*60);
-    const date = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
-    sales.push({ id:uid('sl'), no, date: date.toISOString(), buyerName:'', buyerPhone:'', items, totalAmount });
-    no++;
-  }
-  return { sales, nextSaleNo: no };
+function defaultOverheads(){
+  return [
+    { id:uid('oh'), name:'ค่าแรงพนักงาน', amount:9000, frequency:'monthly', date:null },
+    { id:uid('oh'), name:'ค่าน้ำมันรถขนของ', amount:150, frequency:'daily', date:null },
+    { id:uid('oh'), name:'ค่าไฟฟ้าร้าน', amount:1200, frequency:'monthly', date:null },
+  ];
 }
-
-function defaultState(){
-  const materials = seedMaterials();
-  const seededPurchases = seedPurchases(materials);
-  const seededSales = seedSales(materials);
+function defaultUi(){
+  return { tab:'dashboard', stockQ:'', posQ:'', posCat:'ทั้งหมด', sellQ:'', sellCat:'ทั้งหมด', dashPeriod:'day', historyTab:'buy' };
+}
+function emptyState(){
   return {
-    shop:{ name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo: null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 },
-    materials,
-    purchases: seededPurchases.purchases,
-    nextReceiptNo: seededPurchases.nextReceiptNo,
-    sales: seededSales.sales,
-    nextSaleNo: seededSales.nextSaleNo,
-    overheadCosts:[
-      { id:uid('oh'), name:'ค่าแรงพนักงาน', amount:9000, frequency:'monthly', date:null },
-      { id:uid('oh'), name:'ค่าน้ำมันรถขนของ', amount:150, frequency:'daily', date:null },
-      { id:uid('oh'), name:'ค่าไฟฟ้าร้าน', amount:1200, frequency:'monthly', date:null },
-    ],
-    cart:[],
-    sellCart:[],
-    ui:{ tab:'dashboard', stockQ:'', posQ:'', posCat:'ทั้งหมด', sellQ:'', sellCat:'ทั้งหมด', dashPeriod:'day', historyTab:'buy' }
+    shop: defaultShop(), shopExists:false,
+    materials:[], purchases:[], sales:[], overheadCosts:[],
+    nextReceiptNo:1, nextSaleNo:1,
+    cart:[], sellCart:[],
+    ui: defaultUi()
   };
 }
 
-let state = loadState();
+let state = emptyState();
 let selectedReceiptIds = new Set();
+let sb = null, session = null, profile = null;
+const txIds = { buy:null, sell:null };   // Supabase client / session / โปรไฟล์ (role)
 
-function loadState(){
+function isAdmin(){ return !!(profile && profile.role === 'admin'); }
+function localKey(){ return 'spd_local_v2_' + (session ? session.user.id : 'anon'); }
+function loadLocalUi(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return defaultState();
-    const parsed = JSON.parse(raw);
-    if(!parsed || !Array.isArray(parsed.materials)) return defaultState();
-    parsed.ui = parsed.ui || { tab:'dashboard', stockQ:'', posQ:'', posCat:'ทั้งหมด', sellQ:'', sellCat:'ทั้งหมด', dashPeriod:'day', historyTab:'buy' };
-    if(!parsed.ui.dashPeriod) parsed.ui.dashPeriod = 'day';
-    if(parsed.ui.sellQ == null) parsed.ui.sellQ = '';
-    if(!parsed.ui.sellCat) parsed.ui.sellCat = 'ทั้งหมด';
-    if(!parsed.ui.historyTab) parsed.ui.historyTab = 'buy';
-    parsed.cart = parsed.cart || [];
-    parsed.sellCart = parsed.sellCart || [];
-    parsed.purchases = parsed.purchases || [];
-    parsed.sales = parsed.sales || [];
-    if(parsed.nextSaleNo == null) parsed.nextSaleNo = (parsed.sales.length ? Math.max(...parsed.sales.map(s=>s.no))+1 : 1);
-    if(!Array.isArray(parsed.overheadCosts)) parsed.overheadCosts = [
-      { id:uid('oh'), name:'ค่าแรงพนักงาน', amount:9000, frequency:'monthly', date:null },
-      { id:uid('oh'), name:'ค่าน้ำมันรถขนของ', amount:150, frequency:'daily', date:null },
-      { id:uid('oh'), name:'ค่าไฟฟ้าร้าน', amount:1200, frequency:'monthly', date:null },
-    ];
-    if(parsed.shop && parsed.shop.highStockAlert == null) parsed.shop.highStockAlert = 150;
-    if(parsed.shop && parsed.shop.logoSize == null) parsed.shop.logoSize = 100;
-    if(parsed.shop && parsed.shop.logoOffset == null) parsed.shop.logoOffset = 38;
-    if(parsed.shop && !parsed.shop.shopNameFont) parsed.shop.shopNameFont = 'Taviraj';
-    if(parsed.shop && !parsed.shop.totalFont) parsed.shop.totalFont = 'Taviraj';
-    if(parsed.shop && parsed.shop.autoPrint == null) parsed.shop.autoPrint = true;
-    if(parsed.shop && !parsed.shop.paperWidth) parsed.shop.paperWidth = 80;
-    return parsed;
-  }catch(e){
-    console.error('load error', e);
-    return defaultState();
-  }
+    const raw = localStorage.getItem(localKey());
+    if(!raw) return;
+    const p = JSON.parse(raw);
+    if(Array.isArray(p.cart)) state.cart = p.cart;
+    if(Array.isArray(p.sellCart)) state.sellCart = p.sellCart;
+    if(p.ui) state.ui = Object.assign(defaultUi(), p.ui);
+  }catch(e){ console.error('local load error', e); }
 }
 function saveState(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch(e){ console.error('save error', e); toast('บันทึกข้อมูลไม่สำเร็จ (พื้นที่จัดเก็บเต็ม?)','err'); }
+  try{ localStorage.setItem(localKey(), JSON.stringify({ cart:state.cart, sellCart:state.sellCart, ui:state.ui })); }
+  catch(e){ console.error('save error', e); }
+  scheduleSync();   // admin: ส่งการแก้ไขขึ้นเซิร์ฟเวอร์ (พนักงานไม่มีสิทธิ์ จึงไม่ส่ง)
 }
 function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
 
 /* ================= HELPERS ================= */
 function money(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -633,11 +561,16 @@ const TABS = [
   {id:'settings', label:'ตั้งค่าร้าน', icon:'settings'},
 ];
 
+const STAFF_TABS = ['pos','sell','receipts'];
+function allowedTabs(){ return isAdmin() ? TABS : TABS.filter(t=>STAFF_TABS.includes(t.id)); }
+
 function render(){
   const app = document.getElementById('app');
-  const tabMeta = TABS.find(t=>t.id===state.ui.tab) || TABS[0];
+  const tabs = allowedTabs();
+  if(!tabs.some(t=>t.id===state.ui.tab)) state.ui.tab = tabs[0].id;
+  const tabMeta = tabs.find(t=>t.id===state.ui.tab) || tabs[0];
   const todayPurchases = state.purchases.filter(p=>isToday(p.date));
-  const todayProfit = todayPurchases.reduce((a,p)=>a+p.totalProfit,0);
+  const todayProfit = todayPurchases.reduce((a,p)=>a+(p.totalProfit||0),0);
 
   app.innerHTML = `
     <aside class="sidebar">
@@ -649,25 +582,27 @@ function render(){
         </div>
       </div>
       <nav class="tabs">
-        ${TABS.map(t=>`
+        ${tabs.map(t=>`
           <button class="tab-btn ${t.id===state.ui.tab?'active':''}" data-tab="${t.id}">
             ${ic(t.icon)}<span>${t.label}</span>
           </button>`).join('')}
       </nav>
-      <div class="sidebar-foot">${authUser ? `ผู้ใช้: ${esc(authUser.username)}<br>` : ''}ข้อมูลบันทึกไว้ในเบราว์เซอร์นี้เท่านั้น</div>
+      <div class="sidebar-foot">ผู้ใช้: ${esc(profile ? profile.username : '')} · ${roleLabel(profile ? profile.role : '')}<br>ข้อมูลซิงก์กับเซิร์ฟเวอร์ทุกเครื่อง</div>
     </aside>
     <div class="main">
       <div class="topbar">
         <h1>${tabMeta.label}</h1>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <div class="stat">กำไรวันนี้ <b class="profit">฿${money(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>
+          ${isAdmin()
+            ? `<div class="stat">กำไรวันนี้ <b class="profit">฿${money(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>`
+            : `<div class="stat">${esc(profile ? profile.username : '')} · รับซื้อวันนี้ <b>${todayPurchases.length}</b> รายการ</div>`}
           <button class="btn small" id="btnLogout" title="ออกจากระบบ">ออกจากระบบ</button>
         </div>
       </div>
       <div class="content" id="content"></div>
     </div>
     <nav class="bottom-nav">
-      ${TABS.map(t=>`
+      ${tabs.map(t=>`
         <button class="bn-btn ${t.id===state.ui.tab?'active':''}" data-tab="${t.id}">
           ${ic(t.icon)}<span>${t.label}</span>
         </button>`).join('')}
@@ -683,6 +618,7 @@ function render(){
 
 function renderContent(){
   const c = document.getElementById('content');
+  if(!allowedTabs().some(t=>t.id===state.ui.tab)){ render(); return; }
   if(state.ui.tab==='dashboard') c.innerHTML = viewDashboard();
   else if(state.ui.tab==='stock') c.innerHTML = viewStock();
   else if(state.ui.tab==='pos') c.innerHTML = viewPOS();
@@ -692,6 +628,7 @@ function renderContent(){
   const cartShowing = (state.ui.tab==='pos' && state.cart.length>0) || (state.ui.tab==='sell' && state.sellCart.length>0);
   c.classList.toggle('has-cart-bar', cartShowing);
   bindContentEvents();
+  if(state.ui.tab==='settings') loadUsersPanel();
 }
 
 /* ================= DASHBOARD (profit) ================= */
@@ -1378,32 +1315,43 @@ function refreshCartSheetIfOpen(mode){
   bindCartSheetOverlay(mode, overlay);
 }
 
-function checkout(sellerNameArg, sellerPhoneArg){
-  if(!state.cart.length) return;
+function lastOf(list, id){ return list.find(x=>x.id===id); }
+
+async function checkout(sellerNameArg, sellerPhoneArg){
+  if(!state.cart.length || txBusy) return;
   const sellerName = sellerNameArg != null ? sellerNameArg : (document.getElementById('sellerName') ? document.getElementById('sellerName').value.trim() : '');
   const sellerPhone = sellerPhoneArg != null ? sellerPhoneArg : (document.getElementById('sellerPhone') ? document.getElementById('sellerPhone').value.trim() : '');
   const items = state.cart.map(c=>{
     const m = getMaterial(c.materialId);
-    m.stock = Number((m.stock + c.qty).toFixed(3));
     const cost = Number((m.buyPrice*c.qty).toFixed(2));
     const profit = Number(((m.sellPrice-m.buyPrice)*c.qty).toFixed(2));
-    return { name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost, profit };
+    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost, profit };
   });
   const totalCost = Number(items.reduce((a,i)=>a+i.cost,0).toFixed(2));
   const totalProfit = Number(items.reduce((a,i)=>a+i.profit,0).toFixed(2));
-  const purchase = { id:uid('pu'), no: state.nextReceiptNo, date: new Date().toISOString(), sellerName, sellerPhone, items, totalCost, totalProfit };
-  state.purchases.push(purchase);
-  state.nextReceiptNo += 1;
+  // id คงเดิมตลอดการลองซ้ำ ถ้าเน็ตหลุดหลังบันทึกไปแล้ว กดอีกครั้งจะไม่เกิดใบซ้ำ
+  const sig = JSON.stringify(items.map(i=>[i.mid,i.qty]));
+  if(!txIds.buy || txIds.buy.sig!==sig) txIds.buy = { id:uid('pu'), date:new Date().toISOString(), sig };
+  const doc = { id:txIds.buy.id, date:txIds.buy.date, sellerName, sellerPhone, items, totalCost, totalProfit };
+  txBusy = true;
+  const { error } = await sb.rpc('record_purchase', { doc });
+  txBusy = false;
+  if(error && error.code !== '23505'){ toast('บันทึกไม่สำเร็จ: '+friendlyErr(error),'err'); return; }
+  txIds.buy = null;
   state.cart = [];
   saveState();
+  await pullAll(true);
   renderContent();
+  const purchase = lastOf(state.purchases, doc.id);
   toast('บันทึกรายการรับซื้อแล้ว');
-  openReceiptModal(purchase.id);
-  if(state.shop.autoPrint) printReceiptNow(receiptHTML(purchase));
+  if(purchase){
+    openReceiptModal(purchase.id);
+    if(state.shop.autoPrint) printReceiptNow(receiptHTML(purchase));
+  }
 }
 
-function sellCheckout(buyerNameArg, buyerPhoneArg){
-  if(!state.sellCart.length) return;
+async function sellCheckout(buyerNameArg, buyerPhoneArg){
+  if(!state.sellCart.length || txBusy) return;
   for(const c of state.sellCart){
     const m = getMaterial(c.materialId);
     if(!m || c.qty > m.stock){ toast(`สต๊อกไม่พอสำหรับ ${m?m.name:'สินค้า'}`,'err'); return; }
@@ -1412,20 +1360,32 @@ function sellCheckout(buyerNameArg, buyerPhoneArg){
   const buyerPhone = buyerPhoneArg != null ? buyerPhoneArg : (document.getElementById('buyerPhone') ? document.getElementById('buyerPhone').value.trim() : '');
   const items = state.sellCart.map(c=>{
     const m = getMaterial(c.materialId);
-    m.stock = Number((m.stock - c.qty).toFixed(3));
     const amount = Number((m.sellPrice*c.qty).toFixed(2));
-    return { name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, sellPrice:m.sellPrice, amount };
+    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, sellPrice:m.sellPrice, amount };
   });
   const totalAmount = Number(items.reduce((a,i)=>a+i.amount,0).toFixed(2));
-  const sale = { id:uid('sl'), no: state.nextSaleNo, date: new Date().toISOString(), buyerName, buyerPhone, items, totalAmount };
-  state.sales.push(sale);
-  state.nextSaleNo += 1;
+  const sig = JSON.stringify(items.map(i=>[i.mid,i.qty]));
+  if(!txIds.sell || txIds.sell.sig!==sig) txIds.sell = { id:uid('sl'), date:new Date().toISOString(), sig };
+  const doc = { id:txIds.sell.id, date:txIds.sell.date, buyerName, buyerPhone, items, totalAmount };
+  txBusy = true;
+  const { error } = await sb.rpc('record_sale', { doc });
+  txBusy = false;
+  if(error && error.code !== '23505'){
+    toast('บันทึกไม่สำเร็จ: '+friendlyErr(error),'err');
+    if(/insufficient stock/i.test(error.message||'')){ await pullAll(true); renderContent(); }
+    return;
+  }
+  txIds.sell = null;
   state.sellCart = [];
   saveState();
+  await pullAll(true);
   renderContent();
+  const sale = lastOf(state.sales, doc.id);
   toast('บันทึกการขายแล้ว รับเงิน ฿'+money(totalAmount));
-  openSaleReceiptModal(sale.id);
-  if(state.shop.autoPrint) printReceiptNow(saleReceiptHTML(sale));
+  if(sale){
+    openSaleReceiptModal(sale.id);
+    if(state.shop.autoPrint) printReceiptNow(saleReceiptHTML(sale));
+  }
 }
 
 /* ================= OVERHEAD / HIDDEN COSTS (ต้นทุนแฝง) ================= */
@@ -1537,7 +1497,7 @@ function viewPurchaseHistory(){
       <div class="table-scroll"><table>
         <thead><tr>
           <th style="width:34px;"><input type="checkbox" id="selectAllReceipts" ${allSelected?'checked':''}></th>
-          <th>เลขที่</th><th>วันที่ - เวลา</th><th>ผู้ขาย</th><th class="num">จำนวนรายการ</th><th class="num">จ่ายรวม</th><th class="num">กำไร</th><th class="num">จัดการ</th>
+          <th>เลขที่</th><th>วันที่ - เวลา</th><th>ผู้ขาย</th><th class="num">จำนวนรายการ</th><th class="num">จ่ายรวม</th>${isAdmin()?'<th class="num">กำไร</th>':''}<th class="num">จัดการ</th>
         </tr></thead>
         <tbody>
           ${list.map(p=>`
@@ -1548,7 +1508,7 @@ function viewPurchaseHistory(){
               <td>${p.sellerName ? esc(p.sellerName) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="num">${p.items.length}</td>
               <td class="num mono">฿${money(p.totalCost)}</td>
-              <td class="num mono" style="color:var(--gold);">฿${money(p.totalProfit)}</td>
+              ${isAdmin()?`<td class="num mono" style="color:var(--gold);">฿${money(p.totalProfit)}</td>`:''}
               <td class="num" onclick="event.stopPropagation()">
                 <button class="btn small icon-only" data-view-receipt="${p.id}" title="ดูใบรับซื้อ">${ic('receipt')}</button>
                 <button class="btn small icon-only" data-pdf-receipt="${p.id}" title="ดาวน์โหลด PDF">${ic('download')}</button>
@@ -1828,7 +1788,7 @@ function compressImageToPNG(file, onDone, onError){
 /* ================= SETTINGS ================= */
 function viewSettings(){
   const s = state.shop;
-  return `
+  return viewUsersPanel() + `
     <div class="panel" style="max-width:520px;">
       <div class="panel-head"><h2>ข้อมูลร้านค้า</h2></div>
       <div class="modal-body">
@@ -2168,142 +2128,458 @@ function bindContentEvents(){
   }
 }
 
-/* ================= AUTH (บัญชีผู้ใช้ — เก็บในเบราว์เซอร์นี้) ================= */
-const AUTH_KEY = 'scrapShopAuth_v1';
-const SESSION_KEY = 'scrapShopSession_v1';
-let authUser = null;
-let authMode = 'login';
+/* ================= CLOUD: Supabase (บัญชีผู้ใช้ + ข้อมูลกลาง) ================= */
+/* วางค่าจาก Supabase > Project Settings > API ตรงนี้ หรือปล่อยว่างแล้วกรอกในหน้าตั้งค่าครั้งแรกของแต่ละเครื่อง
+   (anon key เป็นกุญแจสาธารณะ ออกแบบให้อยู่ในหน้าเว็บได้ ความปลอดภัยอยู่ที่กฎ RLS ใน supabase/schema.sql) */
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+const CFG_KEY = 'spd_supabase_cfg_v1';
+const POLL_MS = 15000;
+const EMAIL_DOMAIN = 'spd-shop.app';   // ชื่อผู้ใช้ถูกแปลงเป็นอีเมลภายในเพราะ Supabase ล็อกอินด้วยอีเมล
 
-function loadAuth(){
+let authMode = 'login';
+let snap = { materials:{}, overheads:{}, shop:'' };
+let lastInputAt = 0, lastSig = '', syncBusy = false, syncTimer = null, pollTimer = null, txBusy = false, pendingRoleTimer = null;
+
+function getCfg(){
+  if(SUPABASE_URL && SUPABASE_ANON_KEY) return { url:SUPABASE_URL, key:SUPABASE_ANON_KEY };
   try{
-    const a = JSON.parse(localStorage.getItem(AUTH_KEY));
-    if(a && Array.isArray(a.users)) return a;
+    const c = JSON.parse(localStorage.getItem(CFG_KEY));
+    if(c && c.url && c.key) return c;
   }catch(e){}
-  return { users:[] };
+  return null;
 }
-function saveAuth(a){
-  try{ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); return true; }
-  catch(e){ return false; }
+function userEmail(u){ return u + '@' + EMAIL_DOMAIN; }
+function roleLabel(r){ return ({ admin:'ผู้ดูแล (admin)', staff:'พนักงาน', pending:'รออนุมัติ', disabled:'ถูกระงับ' })[r] || r; }
+function friendlyErr(e){
+  const m = (e && e.message) ? e.message : String(e);
+  if(/insufficient stock/i.test(m)) return 'สต๊อกไม่พอ';
+  if(/no permission|row-level security|permission denied/i.test(m)) return 'ไม่มีสิทธิ์ทำรายการนี้';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'ออนไลน์ไม่ได้ ตรวจสอบอินเทอร์เน็ต';
+  return m;
 }
-function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-function hexToBytes(hex){
-  const out = new Uint8Array(hex.length/2);
-  for(let i=0;i<out.length;i++) out[i] = parseInt(hex.substr(i*2,2),16);
-  return out;
+function must(p){ return p.then(r=>{ if(r.error) throw r.error; return r; }); }
+
+/* ---------- หน้าจอก่อนเข้าระบบ ---------- */
+function authShell(inner){
+  closeModal();
+  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-card">${inner}</div></div>`;
 }
-async function hashPassword(pw, saltHex){
-  const salt = saltHex ? hexToBytes(saltHex) : crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt, iterations:150000, hash:'SHA-256' }, key, 256);
-  return { salt: bufToHex(salt), hash: bufToHex(bits) };
+function renderLoading(msg){
+  authShell(`<div class="auth-brand"><h1>ระบบหลังร้าน</h1><div class="auth-sub">${esc(msg||'กำลังโหลด…')}</div></div>`);
 }
-function readSessionName(){
-  try{ return sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY); }
-  catch(e){ return null; }
-}
-function startSession(user, remember){
-  try{
-    sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_KEY);
-    (remember ? localStorage : sessionStorage).setItem(SESSION_KEY, user.username);
-  }catch(e){}
-  authUser = user;
-  render();
-}
-function logout(){
-  try{ sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_KEY); }catch(e){}
-  authUser = null;
-  authMode = 'login';
-  renderAuth();
+
+function renderSetup(){
+  authShell(`
+    <div class="auth-brand"><h1>เชื่อมต่อเซิร์ฟเวอร์</h1><div class="auth-sub">ตั้งค่าครั้งเดียวต่อเครื่อง</div></div>
+    <div class="auth-note">ต้องมีโปรเจกต์ Supabase ก่อน (ดูขั้นตอนในไฟล์ SETUP.md) แล้วนำค่าสองตัวนี้มากรอก</div>
+    <form id="cfgForm">
+      <div class="field"><label>Project URL</label><input id="cfgUrl" placeholder="https://xxxxxxxx.supabase.co" autocapitalize="none" required></div>
+      <div class="field"><label>anon public key</label><input id="cfgKey" placeholder="eyJ..." autocapitalize="none" required></div>
+      <div class="auth-error" id="cfgErr" role="alert"></div>
+      <button class="btn primary" type="submit" style="width:100%; justify-content:center; padding:12px;">บันทึกและเชื่อมต่อ</button>
+    </form>
+  `);
+  document.getElementById('cfgForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const url = document.getElementById('cfgUrl').value.trim().replace(/\/+$/,'');
+    const key = document.getElementById('cfgKey').value.trim();
+    if(!/^https:\/\/[^\s/]+$/.test(url)){ document.getElementById('cfgErr').textContent = 'URL ต้องขึ้นต้นด้วย https:// และไม่มีเครื่องหมายต่อท้าย'; return; }
+    if(key.length < 20){ document.getElementById('cfgErr').textContent = 'anon key สั้นเกินไป ตรวจว่าคัดลอกมาครบ'; return; }
+    try{ localStorage.setItem(CFG_KEY, JSON.stringify({ url, key })); }catch(err){}
+    location.reload();
+  };
 }
 
 function renderAuth(){
-  closeModal();
-  const app = document.getElementById('app');
-  const auth = loadAuth();
-  const hasUsers = auth.users.length > 0;
-  if(!hasUsers) authMode = 'signup';
   const isSignup = authMode === 'signup';
-  app.innerHTML = `
-    <div class="auth-wrap">
-      <div class="auth-card">
-        <div class="auth-brand">
-          <h1>ระบบหลังร้าน</h1>
-          <div class="auth-sub">เข้าสู่ระบบหรือสมัครสมาชิกเพื่อใช้งาน</div>
-        </div>
-        ${hasUsers ? `
-        <div class="period-tabs auth-tabs">
-          <button type="button" class="period-tab ${!isSignup?'active':''}" data-auth-mode="login">เข้าสู่ระบบ</button>
-          <button type="button" class="period-tab ${isSignup?'active':''}" data-auth-mode="signup">สมัครสมาชิก</button>
-        </div>` : `<div class="auth-note">ยังไม่มีบัญชีในเครื่องนี้ บัญชีแรกที่สมัครจะเป็นเจ้าของร้าน</div>`}
-        <form id="authForm" autocomplete="on">
-          <div class="field"><label>ชื่อผู้ใช้</label><input id="auUser" autocomplete="username" autocapitalize="none" required></div>
-          <div class="field"><label>รหัสผ่าน${isSignup?' (อย่างน้อย 6 ตัวอักษร)':''}</label><input id="auPass" type="password" autocomplete="${isSignup?'new-password':'current-password'}" required></div>
-          ${isSignup ? `<div class="field"><label>ยืนยันรหัสผ่าน</label><input id="auPass2" type="password" autocomplete="new-password" required></div>` : ''}
-          <label class="printer-toggle" style="margin-bottom:14px;"><input type="checkbox" id="auRemember" checked><span>จดจำฉันไว้ในเครื่องนี้</span></label>
-          <div class="auth-error" id="auError" role="alert"></div>
-          <button class="btn primary" type="submit" id="auSubmit" style="width:100%; justify-content:center; padding:12px;">${isSignup?'สมัครสมาชิก':'เข้าสู่ระบบ'}</button>
-        </form>
-        <div class="auth-foot">บัญชีและข้อมูลร้านเก็บอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น</div>
-      </div>
+  authShell(`
+    <div class="auth-brand">
+      <h1>ระบบหลังร้าน</h1>
+      <div class="auth-sub">เข้าสู่ระบบหรือสมัครสมาชิกเพื่อใช้งาน</div>
     </div>
-  `;
-  app.querySelectorAll('[data-auth-mode]').forEach(b=>{
-    b.onclick = ()=>{ authMode = b.dataset.authMode; renderAuth(); };
-  });
-  const form = document.getElementById('authForm');
+    <div class="period-tabs auth-tabs">
+      <button type="button" class="period-tab ${!isSignup?'active':''}" data-auth-mode="login">เข้าสู่ระบบ</button>
+      <button type="button" class="period-tab ${isSignup?'active':''}" data-auth-mode="signup">สมัครสมาชิก</button>
+    </div>
+    ${isSignup ? `<div class="auth-note">สมัครแล้วต้องรอผู้ดูแลร้านอนุมัติก่อนจึงจะใช้งานได้ (บัญชีแรกของร้านจะเป็นผู้ดูแลทันที)</div>` : ''}
+    <form id="authForm" autocomplete="on">
+      <div class="field"><label>ชื่อผู้ใช้${isSignup?' (a-z 0-9 . _ - ยาว 3-30 ตัว)':''}</label><input id="auUser" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+      <div class="field"><label>รหัสผ่าน${isSignup?' (อย่างน้อย 6 ตัวอักษร)':''}</label><input id="auPass" type="password" autocomplete="${isSignup?'new-password':'current-password'}" required></div>
+      ${isSignup ? `<div class="field"><label>ยืนยันรหัสผ่าน</label><input id="auPass2" type="password" autocomplete="new-password" required></div>` : ''}
+      <div class="auth-error" id="auError" role="alert"></div>
+      <button class="btn primary" type="submit" id="auSubmit" style="width:100%; justify-content:center; padding:12px;">${isSignup?'สมัครสมาชิก':'เข้าสู่ระบบ'}</button>
+    </form>
+    <div class="auth-foot">ข้อมูลร้านและบัญชีอยู่บนเซิร์ฟเวอร์กลาง ใช้ได้ทั้งมือถือและคอมพิวเตอร์</div>
+  `);
+  document.querySelectorAll('[data-auth-mode]').forEach(b=>{ b.onclick = ()=>{ authMode = b.dataset.authMode; renderAuth(); }; });
   const errEl = document.getElementById('auError');
   const submitBtn = document.getElementById('auSubmit');
-  form.onsubmit = async (e)=>{
+  document.getElementById('authForm').onsubmit = async (e)=>{
     e.preventDefault();
     errEl.textContent = '';
     const username = document.getElementById('auUser').value.trim().toLowerCase();
     const pw = document.getElementById('auPass').value;
-    const remember = document.getElementById('auRemember').checked;
-    if(!(window.crypto && crypto.subtle)){
-      errEl.textContent = 'เบราว์เซอร์นี้ยังเข้ารหัสรหัสผ่านไม่ได้ ให้เปิดเว็บผ่านลิงก์ https';
-      return;
-    }
+    if(!/^[a-z0-9._-]{3,30}$/.test(username)){ errEl.textContent = 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3-30 ตัว'; return; }
+    if(pw.length < 6){ errEl.textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร'; return; }
     submitBtn.disabled = true;
     try{
-      const a = loadAuth();
       if(isSignup){
-        const pw2 = document.getElementById('auPass2').value;
-        if(!/^[\p{L}\p{N}._-]{3,30}$/u.test(username)){ errEl.textContent = 'ชื่อผู้ใช้ต้องยาว 3-30 ตัว ใช้ตัวอักษร ตัวเลข จุด ขีดล่าง หรือขีดกลางเท่านั้น'; return; }
-        if(pw.length < 6){ errEl.textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร'; return; }
-        if(pw !== pw2){ errEl.textContent = 'รหัสผ่านสองช่องไม่ตรงกัน'; return; }
-        if(a.users.some(u=>u.username===username)){ errEl.textContent = 'ชื่อผู้ใช้นี้ถูกใช้แล้ว'; return; }
-        const h = await hashPassword(pw);
-        const user = { id:uid('u'), username, role: a.users.length ? 'staff' : 'owner', salt:h.salt, hash:h.hash, createdAt:new Date().toISOString() };
-        a.users.push(user);
-        if(!saveAuth(a)){ errEl.textContent = 'บันทึกบัญชีไม่สำเร็จ (พื้นที่จัดเก็บเต็มหรือถูกบล็อก)'; return; }
-        startSession(user, remember);
+        if(pw !== document.getElementById('auPass2').value){ errEl.textContent = 'รหัสผ่านสองช่องไม่ตรงกัน'; return; }
+        const { data, error } = await sb.auth.signUp({ email:userEmail(username), password:pw, options:{ data:{ username } } });
+        if(error){
+          errEl.textContent = /already registered|already exists/i.test(error.message) ? 'ชื่อผู้ใช้นี้ถูกใช้แล้ว' : friendlyErr(error);
+          return;
+        }
+        if(!data.session){
+          errEl.textContent = 'สมัครไม่สำเร็จ: ชื่อนี้อาจถูกใช้แล้ว หรือ Supabase ยังเปิด "Confirm email" อยู่ (ผู้ดูแลต้องปิดตามขั้นตอนใน SETUP.md)';
+          return;
+        }
+        session = data.session;
+        await enterApp();
       }else{
-        const user = a.users.find(u=>u.username===username);
-        if(!user){ errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'; return; }
-        const h = await hashPassword(pw, user.salt);
-        if(h.hash !== user.hash){ errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'; return; }
-        startSession(user, remember);
+        const { data, error } = await sb.auth.signInWithPassword({ email:userEmail(username), password:pw });
+        if(error){
+          errEl.textContent = /invalid login/i.test(error.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : friendlyErr(error);
+          return;
+        }
+        session = data.session;
+        await enterApp();
       }
     }catch(err){
       console.error(err);
-      errEl.textContent = 'เกิดข้อผิดพลาด ลองอีกครั้ง';
+      errEl.textContent = friendlyErr(err);
     }finally{
-      submitBtn.disabled = false;
+      const b = document.getElementById('auSubmit'); if(b) b.disabled = false;
     }
   };
-  const first = document.getElementById('auUser');
-  if(first) first.focus();
+  const first = document.getElementById('auUser'); if(first) first.focus();
 }
 
-function boot(){
-  const name = readSessionName();
-  const user = name ? loadAuth().users.find(u=>u.username===name) : null;
-  if(user){ authUser = user; render(); }
-  else renderAuth();
+function renderPending(){
+  authShell(`
+    <div class="auth-brand"><h1>รอผู้ดูแลอนุมัติ</h1><div class="auth-sub">บัญชี <b>${esc(profile.username)}</b> สมัครแล้ว</div></div>
+    <div class="auth-note">บอกผู้ดูแลร้านให้เปิดสิทธิ์ให้ที่เมนู ตั้งค่าร้าน &gt; ผู้ใช้งาน หน้านี้จะเข้าระบบเองเมื่อได้รับอนุมัติ</div>
+    <button class="btn" id="btnPendingLogout" style="width:100%; justify-content:center; padding:11px;">ออกจากระบบ</button>
+  `);
+  document.getElementById('btnPendingLogout').onclick = logout;
+  clearInterval(pendingRoleTimer);
+  pendingRoleTimer = setInterval(async ()=>{
+    if(!sb || !session){ clearInterval(pendingRoleTimer); return; }
+    const { data } = await sb.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+    if(data && data.role !== 'pending'){ clearInterval(pendingRoleTimer); await enterApp(); }
+  }, 5000);
+}
+function renderBlocked(msg){
+  authShell(`
+    <div class="auth-brand"><h1>เข้าใช้งานไม่ได้</h1><div class="auth-sub">${esc(msg)}</div></div>
+    <button class="btn" id="btnBlockedLogout" style="width:100%; justify-content:center; padding:11px;">ออกจากระบบ</button>
+  `);
+  document.getElementById('btnBlockedLogout').onclick = logout;
+}
+
+/* ---------- เข้า/ออกระบบ ---------- */
+async function initCloud(){
+  const cfg = getCfg();
+  if(!cfg){ renderSetup(); return; }
+  if(!(window.supabase && window.supabase.createClient)){
+    authShell(`<div class="auth-brand"><h1>โหลดไม่สำเร็จ</h1><div class="auth-sub">โหลดไลบรารี Supabase ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช</div></div>`);
+    return;
+  }
+  sb = window.supabase.createClient(cfg.url, cfg.key, { auth:{ persistSession:true, autoRefreshToken:true } });
+  renderLoading('กำลังเชื่อมต่อ…');
+  try{
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+  }catch(e){ session = null; }
+  if(session) await enterApp(); else renderAuth();
+}
+
+async function enterApp(){
+  stopPolling();
+  renderLoading('กำลังโหลดข้อมูล…');
+  let res;
+  try{ res = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle(); }
+  catch(e){ res = { error:e }; }
+  if(res.error){
+    authShell(`<div class="auth-brand"><h1>เชื่อมต่อไม่สำเร็จ</h1><div class="auth-sub">${esc(friendlyErr(res.error))}</div></div>
+      <button class="btn primary" id="btnRetry" style="width:100%; justify-content:center; padding:11px; margin-bottom:8px;">ลองอีกครั้ง</button>
+      <button class="btn" id="btnRetryLogout" style="width:100%; justify-content:center; padding:11px;">ออกจากระบบ</button>`);
+    document.getElementById('btnRetry').onclick = enterApp;
+    document.getElementById('btnRetryLogout').onclick = logout;
+    return;
+  }
+  profile = res.data;
+  if(!profile){ renderBlocked('ไม่พบข้อมูลผู้ใช้ในระบบ (ยังไม่ได้รัน schema.sql ใช่ไหม?)'); return; }
+  if(profile.role === 'pending'){ renderPending(); return; }
+  if(profile.role === 'disabled'){ renderBlocked('บัญชีนี้ถูกระงับโดยผู้ดูแลร้าน'); return; }
+
+  state = emptyState();
+  loadLocalUi();
+  const ok = await pullAll(true);
+  if(!ok){
+    authShell(`<div class="auth-brand"><h1>โหลดข้อมูลไม่สำเร็จ</h1><div class="auth-sub">ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</div></div>
+      <button class="btn primary" id="btnRetry" style="width:100%; justify-content:center; padding:11px; margin-bottom:8px;">ลองอีกครั้ง</button>
+      <button class="btn" id="btnRetryLogout" style="width:100%; justify-content:center; padding:11px;">ออกจากระบบ</button>`);
+    document.getElementById('btnRetry').onclick = enterApp;
+    document.getElementById('btnRetryLogout').onclick = logout;
+    return;
+  }
+  if(isAdmin() && !state.shopExists && state.materials.length === 0){
+    render();
+    openBootstrapModal();
+  }else{
+    render();
+  }
+  startPolling();
+}
+
+async function logout(){
+  stopPolling();
+  clearInterval(pendingRoleTimer);
+  clearTimeout(syncTimer);
+  try{ if(sb) await sb.auth.signOut(); }catch(e){}
+  session = null; profile = null;
+  state = emptyState();
+  snap = { materials:{}, overheads:{}, shop:'' }; lastSig = '';
+  authMode = 'login';
+  renderAuth();
+}
+
+/* ---------- ดึงข้อมูลจากเซิร์ฟเวอร์ ---------- */
+async function pullAll(force){
+  if(!sb || !profile) return false;
+  const admin = isAdmin();
+  let res;
+  try{
+    res = await Promise.all([
+      sb.from('shop_settings').select('data').eq('id', 1).maybeSingle(),
+      sb.from('materials').select('id,data,stock').order('seq'),
+      sb.from('purchases').select('data').order('no'),
+      sb.from('sales').select('data').order('no'),
+      admin ? sb.from('overheads').select('id,data') : Promise.resolve({ data:[], error:null }),
+    ]);
+  }catch(e){ console.error(e); if(force) toast('โหลดข้อมูลไม่สำเร็จ: '+friendlyErr(e),'err'); return false; }
+  const bad = res.find(r=>r.error);
+  if(bad){ console.error(bad.error); if(force) toast('โหลดข้อมูลไม่สำเร็จ: '+friendlyErr(bad.error),'err'); return false; }
+  const sig = JSON.stringify(res.map(r=>r.data));
+  if(!force && sig === lastSig) return false;
+  lastSig = sig;
+  const [st, mats, pur, sal, ovh] = res.map(r=>r.data);
+  state.shopExists = !!st;
+  state.shop = Object.assign(defaultShop(), st ? st.data : {});
+  state.materials = (mats||[]).map(r=>Object.assign({}, r.data, { id:r.id, stock:Number(r.stock) }));
+  state.purchases = (pur||[]).map(r=>r.data);
+  state.sales = (sal||[]).map(r=>r.data);
+  state.overheadCosts = (ovh||[]).map(r=>Object.assign({}, r.data, { id:r.id }));
+  state.cart = state.cart.filter(c=>getMaterial(c.materialId));
+  state.sellCart = state.sellCart.filter(c=>getMaterial(c.materialId));
+  state.nextReceiptNo = state.purchases.length ? Math.max(...state.purchases.map(p=>p.no)) + 1 : 1;
+  state.nextSaleNo = state.sales.length ? Math.max(...state.sales.map(s=>s.no)) + 1 : 1;
+  snap = makeSnap();
+  return true;
+}
+
+function matSplit(m){
+  const rest = Object.assign({}, m); delete rest.id; delete rest.stock;
+  return { d: JSON.stringify(rest), s: Number(m.stock) };
+}
+function ovhSplit(o){ const rest = Object.assign({}, o); delete rest.id; return JSON.stringify(rest); }
+function makeSnap(){
+  const s = { materials:{}, overheads:{}, shop: JSON.stringify(state.shop) };
+  state.materials.forEach(m=>{ s.materials[m.id] = matSplit(m); });
+  state.overheadCosts.forEach(o=>{ s.overheads[o.id] = ovhSplit(o); });
+  return s;
+}
+
+/* ---------- ส่งการแก้ไขของ admin ขึ้นเซิร์ฟเวอร์ (เทียบกับที่ดึงมาล่าสุด) ---------- */
+function scheduleSync(){
+  if(!sb || !isAdmin()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>{ syncTimer = null; syncPush(); }, 600);
+}
+async function syncPush(){
+  if(!sb || !isAdmin()) return;
+  if(syncBusy){ scheduleSync(); return; }
+  syncBusy = true;
+  try{
+    // วัสดุ: ลบ / เพิ่ม / แก้ (แยกคอลัมน์ stock เพื่อไม่เขียนทับสต๊อกที่พนักงานเพิ่งขยับ)
+    const cur = {};
+    state.materials.forEach(m=>{ cur[m.id] = matSplit(m); });
+    for(const id of Object.keys(snap.materials)){
+      if(!cur[id]){ await must(sb.from('materials').delete().eq('id', id)); delete snap.materials[id]; }
+    }
+    for(const m of state.materials){
+      const c = cur[m.id], o = snap.materials[m.id];
+      if(!o){
+        await must(sb.from('materials').insert({ id:m.id, data:JSON.parse(c.d), stock:c.s }));
+      }else{
+        const patch = {};
+        if(o.d !== c.d) patch.data = JSON.parse(c.d);
+        if(o.s !== c.s) patch.stock = c.s;
+        if(Object.keys(patch).length){
+          patch.updated_at = new Date().toISOString();
+          await must(sb.from('materials').update(patch).eq('id', m.id));
+        }
+      }
+      snap.materials[m.id] = c;
+    }
+    // ต้นทุนแฝง
+    const curO = {};
+    state.overheadCosts.forEach(o=>{ curO[o.id] = ovhSplit(o); });
+    for(const id of Object.keys(snap.overheads)){
+      if(!(id in curO)){ await must(sb.from('overheads').delete().eq('id', id)); delete snap.overheads[id]; }
+    }
+    for(const o of state.overheadCosts){
+      if(snap.overheads[o.id] !== curO[o.id]){
+        await must(sb.from('overheads').upsert({ id:o.id, data:JSON.parse(curO[o.id]) }));
+        snap.overheads[o.id] = curO[o.id];
+      }
+    }
+    // ตั้งค่าร้าน
+    const shopStr = JSON.stringify(state.shop);
+    if(shopStr !== snap.shop || !state.shopExists){
+      await must(sb.from('shop_settings').upsert({ id:1, data:state.shop }));
+      snap.shop = shopStr; state.shopExists = true;
+    }
+    lastSig = '';   // ให้รอบดึงถัดไปเทียบใหม่
+  }catch(e){
+    console.error(e);
+    toast('บันทึกขึ้นเซิร์ฟเวอร์ไม่สำเร็จ: '+friendlyErr(e),'err');
+    await pullAll(true);
+    renderContent();
+  }finally{
+    syncBusy = false;
+  }
+}
+
+/* ---------- ดึงข้อมูลใหม่เป็นระยะ ให้เครื่องอื่นเห็นการเปลี่ยนแปลง ---------- */
+function startPolling(){
+  stopPolling();
+  document.addEventListener('input', markInput, true);
+  pollTimer = setInterval(pollTick, POLL_MS);
+  document.addEventListener('visibilitychange', onVisible);
+}
+function markInput(){ lastInputAt = Date.now(); }
+function stopPolling(){
+  clearInterval(pollTimer); pollTimer = null;
+  document.removeEventListener('input', markInput, true);
+  document.removeEventListener('visibilitychange', onVisible);
+}
+function onVisible(){ if(!document.hidden) pollTick(); }
+async function pollTick(){
+  if(!sb || !session || !profile || document.hidden) return;
+  if(syncTimer || syncBusy || txBusy) return;
+  if(document.getElementById('modalOverlay')) return;
+  const ae = document.activeElement;
+  if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && Date.now() - lastInputAt < 5000) return;   // กำลังพิมพ์อยู่ ไม่รีเฟรชทับ
+  try{
+    const { data:p } = await sb.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+    if(p && p.role !== profile.role){ await enterApp(); return; }
+  }catch(e){ return; }
+  const changed = await pullAll(false);
+  if(changed) render();
+}
+
+/* ---------- ตั้งต้นครั้งแรก (admin) ---------- */
+function legacyState(){
+  try{
+    const raw = localStorage.getItem(LEGACY_KEY);
+    if(!raw) return null;
+    const p = JSON.parse(raw);
+    return (p && Array.isArray(p.materials) && p.materials.length) ? p : null;
+  }catch(e){ return null; }
+}
+function openBootstrapModal(){
+  const old = legacyState();
+  openModal('ตั้งต้นข้อมูลร้านบนเซิร์ฟเวอร์',
+    `<p style="margin:0 0 12px; line-height:1.7;">เซิร์ฟเวอร์ยังว่างอยู่ เลือกวิธีเริ่มต้น</p>
+     ${old ? `<p style="margin:0 0 12px; font-size:13px; color:var(--muted); line-height:1.7;">พบข้อมูลเดิมในเบราว์เซอร์เครื่องนี้: ${old.materials.length} ประเภทของเก่า, ใบรับซื้อ ${(old.purchases||[]).length} ใบ, ใบขาย ${(old.sales||[]).length} ใบ</p>` : ''}`,
+    `${old ? `<button class="btn primary" id="bsLegacy">นำเข้าข้อมูลเดิม</button>` : ''}
+     <button class="btn ${old?'':'primary'}" id="bsFresh">เริ่มใหม่ (มีประเภทของเก่าตัวอย่าง)</button>`);
+  const lb = document.getElementById('bsLegacy');
+  if(lb) lb.onclick = async ()=>{ lb.disabled = true; await importLegacy(old); };
+  document.getElementById('bsFresh').onclick = async ()=>{
+    document.getElementById('bsFresh').disabled = true;
+    state.materials = seedMaterials();
+    state.overheadCosts = defaultOverheads();
+    state.shopExists = false;
+    closeModal();
+    await syncPush();
+    await pullAll(true);
+    render();
+    toast('ตั้งต้นข้อมูลแล้ว');
+  };
+}
+async function importLegacy(old){
+  try{
+    state.shop = Object.assign(defaultShop(), old.shop || {});
+    state.materials = old.materials.map(m=>Object.assign({ image:null }, m));
+    state.overheadCosts = Array.isArray(old.overheadCosts) ? old.overheadCosts : defaultOverheads();
+    closeModal();
+    toast('กำลังนำเข้า…');
+    await syncPush();
+    const uidv = session.user.id;
+    const chunk = (arr, n)=>{ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; };
+    const pRows = (old.purchases||[]).map(p=>({ id:p.id, no:p.no, date:p.date, created_by:uidv, data:p }));
+    const sRows = (old.sales||[]).map(s=>({ id:s.id, no:s.no, date:s.date, created_by:uidv, data:s }));
+    for(const c of chunk(pRows,100)) await must(sb.from('purchases').upsert(c));
+    for(const c of chunk(sRows,100)) await must(sb.from('sales').upsert(c));
+    await pullAll(true);
+    render();
+    toast('นำเข้าข้อมูลเดิมแล้ว');
+  }catch(e){
+    console.error(e);
+    toast('นำเข้าไม่สำเร็จ: '+friendlyErr(e),'err');
+  }
+}
+
+/* ---------- จัดการผู้ใช้ (admin) ---------- */
+function viewUsersPanel(){
+  return `
+    <div class="panel" style="max-width:640px; margin-bottom:18px;">
+      <div class="panel-head"><h2>ผู้ใช้งาน</h2><button class="btn small" id="btnReloadUsers">รีเฟรช</button></div>
+      <div id="usersPanelBody" class="modal-body" style="padding:0;"><div class="empty">กำลังโหลด…</div></div>
+      <div class="field-hint" style="padding:12px 20px 16px;">
+        <b>ผู้ดูแล (admin)</b> ทำได้ทุกอย่าง · <b>พนักงาน</b> ใช้ได้เฉพาะรับซื้อ/ขาย/ออกใบเสร็จ และเห็นเฉพาะใบเสร็จที่ตัวเองออก ·
+        คนที่สมัครใหม่จะอยู่สถานะ “รออนุมัติ” จนกว่าจะเปลี่ยนที่นี่
+      </div>
+    </div>`;
+}
+async function loadUsersPanel(){
+  const body = document.getElementById('usersPanelBody');
+  if(!body || !isAdmin()) return;
+  const btn = document.getElementById('btnReloadUsers');
+  if(btn) btn.onclick = loadUsersPanel;
+  const { data, error } = await sb.from('profiles').select('id,username,role,created_at').order('created_at');
+  const body2 = document.getElementById('usersPanelBody');
+  if(!body2) return;
+  if(error){ body2.innerHTML = `<div class="empty">โหลดรายชื่อไม่สำเร็จ: ${esc(friendlyErr(error))}</div>`; return; }
+  body2.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>ชื่อผู้ใช้</th><th>สมัครเมื่อ</th><th>สิทธิ์</th></tr></thead>
+    <tbody>${data.map(u=>{
+      const me = u.id === session.user.id;
+      return `<tr>
+        <td class="pname">${esc(u.username)}${me?' <span class="tag sage">คุณ</span>':''}</td>
+        <td>${fmtDate(u.created_at)}</td>
+        <td>${me ? `<span class="tag">${roleLabel(u.role)}</span>` : `
+          <select data-user-role="${u.id}" style="padding:6px 8px; border:1px solid var(--line); border-radius:9px; background:var(--paper); color:var(--ink);">
+            ${['pending','staff','admin','disabled'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}
+          </select>`}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+  body2.querySelectorAll('[data-user-role]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const { error:e2 } = await sb.from('profiles').update({ role: sel.value }).eq('id', sel.dataset.userRole);
+      if(e2) toast('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+friendlyErr(e2),'err');
+      else toast('เปลี่ยนสิทธิ์แล้ว');
+      loadUsersPanel();
+    };
+  });
 }
 
 /* ================= INIT ================= */
-boot();
+initCloud();
 })();
 </script>
 </body>
