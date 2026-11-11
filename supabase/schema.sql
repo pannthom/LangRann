@@ -216,7 +216,7 @@ revoke all on all tables in schema public from anon;
 --  โหมดล้างระบบ (Reset) — admin เท่านั้น ต้องใส่รหัส 3 ชั้น (ตรวจที่ฝั่งเซิร์ฟเวอร์)
 --  ล้าง: ใบรับซื้อ/ใบขายทั้งหมด (เลขที่เริ่ม 1 ใหม่), ต้นทุนแฝง, ราคารับซื้อ/ขายและสต๊อกเป็น 0
 --  รหัสเก็บเป็น hash ในตารางที่ไม่มีใครอ่านได้ผ่าน API ใส่ผิด 5 ครั้งล็อก 15 นาที
---  ลืมรหัส: รันใน SQL Editor  ->  delete from public.reset_secret;  แล้วตั้งรหัสใหม่ในแอป
+--  ลืมรหัส: รันใน SQL Editor  ->  delete from public.reset_secret where true;  แล้วตั้งรหัสใหม่ในแอป
 -- =====================================================================
 create table if not exists public.reset_secret (
   id           int primary key check (id = 1),
@@ -295,7 +295,8 @@ begin
   else
     update public.materials
        set stock = 0, updated_at = now(),
-           data = data || jsonb_build_object('buyPrice', 0, 'sellPrice', 0);
+           data = data || jsonb_build_object('buyPrice', 0, 'sellPrice', 0)
+     where true;   -- Supabase บังคับให้ UPDATE/DELETE ต้องมี WHERE
   end if;
   return jsonb_build_object('ok', true);
 end $$;
