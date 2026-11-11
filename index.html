@@ -2135,7 +2135,7 @@ const SUPABASE_URL = '';
 const SUPABASE_ANON_KEY = '';
 const CFG_KEY = 'spd_supabase_cfg_v1';
 const POLL_MS = 15000;
-const EMAIL_DOMAIN = 'spd-shop.app';   // ชื่อผู้ใช้ถูกแปลงเป็นอีเมลภายในเพราะ Supabase ล็อกอินด้วยอีเมล
+const EMAIL_DOMAIN = 'gmail.com';   // Supabase ล็อกอินด้วยอีเมล และปฏิเสธโดเมนที่ไม่มีอยู่จริง จึงแปลงชื่อผู้ใช้เป็น spd.<ชื่อ>@gmail.com (ไม่มีการส่งเมลจริง)
 
 let authMode = 'login';
 let snap = { materials:{}, overheads:{}, shop:'' };
@@ -2158,10 +2158,11 @@ function isSecretKey(k){
   return false;
 }
 function resetCfg(){ try{ localStorage.removeItem(CFG_KEY); }catch(e){} location.reload(); }
-function userEmail(u){ return u + '@' + EMAIL_DOMAIN; }
+function userEmail(u){ return 'spd.' + u + '@' + EMAIL_DOMAIN; }
 function roleLabel(r){ return ({ admin:'ผู้ดูแล (admin)', staff:'พนักงาน', pending:'รออนุมัติ', disabled:'ถูกระงับ' })[r] || r; }
 function friendlyErr(e){
   const m = (e && e.message) ? e.message : String(e);
+  if(/email.*invalid|invalid.*email/i.test(m)) return 'Supabase ไม่ยอมรับอีเมลภายใน ('+m+') แจ้งผู้พัฒนา';
   if(/secret api key in browser/i.test(m)) return 'ใส่ secret key ผิดตัว กดลิงก์ "เปลี่ยนการเชื่อมต่อเซิร์ฟเวอร์" แล้วใช้ anon / Publishable key แทน';
   if(/insufficient stock/i.test(m)) return 'สต๊อกไม่พอ';
   if(/no permission|row-level security|permission denied/i.test(m)) return 'ไม่มีสิทธิ์ทำรายการนี้';
