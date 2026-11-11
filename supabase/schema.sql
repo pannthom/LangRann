@@ -211,3 +211,96 @@ create policy sales_admin_write on public.sales for all to authenticated
 
 -- ไม่ให้คนที่ยังไม่ล็อกอินแตะอะไรเลย
 revoke all on all tables in schema public from anon;
+
+-- =====================================================================
+--  โหมดล้างระบบ (Reset) — admin เท่านั้น ต้องใส่รหัส 3 ชั้น (ตรวจที่ฝั่งเซิร์ฟเวอร์)
+--  ล้าง: ใบรับซื้อ/ใบขายทั้งหมด (เลขที่เริ่ม 1 ใหม่), ต้นทุนแฝง, ราคารับซื้อ/ขายและสต๊อกเป็น 0
+--  รหัสเก็บเป็น hash ในตารางที่ไม่มีใครอ่านได้ผ่าน API ใส่ผิด 5 ครั้งล็อก 15 นาที
+--  ลืมรหัส: รันใน SQL Editor  ->  delete from public.reset_secret;  แล้วตั้งรหัสใหม่ในแอป
+-- =====================================================================
+create table if not exists public.reset_secret (
+  id           int primary key check (id = 1),
+  salt         text not null,
+  hash         text not null,
+  fail_count   int  not null default 0,
+  locked_until timestamptz
+);
+alter table public.reset_secret enable row level security;   -- ไม่มี policy = ใครก็อ่าน/เขียนผ่าน API ไม่ได้
+revoke all on public.reset_secret from anon, authenticated;
+
+create or replace function public._reset_hash(salt text, a text, b text, c text)
+returns text language sql immutable set search_path = public
+as $$ select encode(sha256(convert_to(
+  salt || '|' || regexp_replace(lower(coalesce(a,'')), '\s', '', 'g')
+       || '|' || regexp_replace(lower(coalesce(b,'')), '\s', '', 'g')
+       || '|' || regexp_replace(lower(coalesce(c,'')), '\s', '', 'g'), 'UTF8')), 'hex') $$;
+
+create or replace function public.reset_secret_status()
+returns boolean language plpgsql security definer set search_path = public
+as $$ begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  return exists(select 1 from public.reset_secret);
+end $$;
+
+-- ตั้ง/เปลี่ยนรหัส (ถ้าเคยตั้งแล้ว ต้องใส่รหัสเดิมให้ถูก)
+create or replace function public.set_reset_secret(n1 text, n2 text, n3 text, o1 text default null, o2 text default null, o3 text default null)
+returns jsonb language plpgsql security definer set search_path = public
+as $$
+declare r public.reset_secret; s text;
+begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  if coalesce(trim(n1),'')='' or coalesce(trim(n2),'')='' or coalesce(trim(n3),'')='' then
+    raise exception 'empty secret';
+  end if;
+  select * into r from public.reset_secret where id = 1 for update;
+  if found then
+    if r.locked_until is not null and r.locked_until > now() then return jsonb_build_object('ok', false, 'locked', true); end if;
+    if r.hash <> public._reset_hash(r.salt, o1, o2, o3) then
+      update public.reset_secret set fail_count = fail_count + 1,
+        locked_until = case when fail_count + 1 >= 5 then now() + interval '15 minutes' else locked_until end,
+        fail_count = case when fail_count + 1 >= 5 then 0 else fail_count + 1 end
+       where id = 1;
+      return jsonb_build_object('ok', false);
+    end if;
+  end if;
+  s := gen_random_uuid()::text;
+  insert into public.reset_secret(id, salt, hash) values (1, s, public._reset_hash(s, n1, n2, n3))
+  on conflict (id) do update set salt = excluded.salt, hash = excluded.hash, fail_count = 0, locked_until = null;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- ล้างระบบ: ถ้ารหัสผิดจะไม่บอกว่าผิดชั้นไหน
+create or replace function public.reset_system(p1 text, p2 text, p3 text, wipe_catalog boolean default false)
+returns jsonb language plpgsql security definer set search_path = public
+as $$
+declare r public.reset_secret;
+begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  select * into r from public.reset_secret where id = 1 for update;
+  if not found then return jsonb_build_object('ok', false, 'notset', true); end if;
+  if r.locked_until is not null and r.locked_until > now() then return jsonb_build_object('ok', false, 'locked', true); end if;
+  if r.hash <> public._reset_hash(r.salt, p1, p2, p3) then
+    update public.reset_secret set
+      locked_until = case when fail_count + 1 >= 5 then now() + interval '15 minutes' else locked_until end,
+      fail_count   = case when fail_count + 1 >= 5 then 0 else fail_count + 1 end
+     where id = 1;
+    return jsonb_build_object('ok', false);
+  end if;
+  update public.reset_secret set fail_count = 0, locked_until = null where id = 1;
+  delete from public.purchases where true;
+  delete from public.sales where true;
+  delete from public.overheads where true;
+  if wipe_catalog then
+    delete from public.materials where true;
+  else
+    update public.materials
+       set stock = 0, updated_at = now(),
+           data = data || jsonb_build_object('buyPrice', 0, 'sellPrice', 0);
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+grant execute on function public.reset_secret_status()                                  to authenticated;
+grant execute on function public.set_reset_secret(text,text,text,text,text,text)       to authenticated;
+grant execute on function public.reset_system(text,text,text,boolean)                  to authenticated;
+revoke execute on function public._reset_hash(text,text,text,text) from anon, authenticated, public;

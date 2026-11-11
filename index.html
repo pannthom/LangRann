@@ -662,6 +662,19 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 .ws-seg button{ border:none; background:none; color:var(--muted); font:inherit; font-weight:600; padding:7px 20px; border-radius:999px; cursor:pointer; }
 .ws-seg button.on{ background:#0F1115; color:#fff; }
 .ws-lbl{ display:block; text-align:left; font-size:12.5px; color:var(--muted); font-weight:600; margin:12px 4px 5px; }
+
+.danger-zone{ border:1.5px solid rgba(217,45,32,.35) !important; }
+.reset-step{ background:var(--paper); border-radius:18px; padding:14px 16px; margin-bottom:12px; font-size:13.5px; }
+.bk-page{ width:794px; height:1123px; box-sizing:border-box; background:#fff; color:#0F1115; padding:34px 36px; font-family:"IBM Plex Sans Thai",sans-serif; font-size:12px; overflow:hidden; }
+.bk-head{ display:flex; justify-content:space-between; font-size:11px; color:#6B7280; border-bottom:1px solid #E3E7EE; padding-bottom:8px; }
+.bk-title{ font-size:18px; font-weight:700; margin:16px 0 12px; }
+.bk-t{ width:100%; border-collapse:collapse; font-size:11px; }
+.bk-t th{ text-align:left; background:#F1F4F9; color:#6B7280; padding:6px 8px; font-weight:600; }
+.bk-t td{ padding:6px 8px; border-bottom:1px solid #EEF0F5; vertical-align:top; }
+.bk-t .r{ text-align:right; white-space:nowrap; } .bk-t .sm{ font-size:10px; color:#444; }
+.bk-cards{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.bk-cards > div{ background:#F1F4F9; border-radius:16px; padding:12px 16px; } .bk-cards span{ display:block; color:#6B7280; font-size:11px; } .bk-cards b{ font-size:20px; }
+.bk-note{ margin-top:16px; color:#6B7280; }
 </style>
 </head>
 <body>
@@ -2369,7 +2382,149 @@ function viewSettings(){
         <div class="receipt-view-wrap" id="receiptLayoutPreview">${receiptHTML(sampleReceiptForPreview())}</div>
       </div>
     </div>
+
+    ${isAdmin() ? `
+    <div class="panel danger-zone" style="max-width:640px; margin-top:18px;">
+      <div class="panel-head"><h2>ล้างระบบ (Reset)</h2></div>
+      <div class="modal-body">
+        <div class="field-hint" style="margin-bottom:12px;">ล้างใบรับซื้อ/ใบขาย ต้นทุนแฝง ตั้งราคาและสต๊อกเป็น 0 และเริ่มนับเลขที่ใบเสร็จที่ 1 ใหม่ — ระบบจะให้โหลดไฟล์สำรอง PDF ก่อนเสมอ และต้องใส่รหัส 3 ชั้น</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn danger" id="btnResetSystem">ล้างระบบ</button>
+          <button class="btn ghost" id="btnResetSecret">ตั้ง/เปลี่ยนรหัส</button>
+          <button class="btn ghost" id="btnBackupOnly">${ic('download')} โหลดไฟล์สำรอง PDF</button>
+        </div>
+      </div>
+    </div>` : ''}
   `;
+}
+
+/* ================= โหมดล้างระบบ + ไฟล์สำรอง ================= */
+function bkMoney(n){ return '฿'+money(n); }
+function backupPagesHTML(){
+  const shop = state.shop.name || 'ร้านรับซื้อของเก่า';
+  const stamp = fmtDate(new Date().toISOString());
+  const buyTotal = state.purchases.reduce((a,p)=>a+p.totalCost,0);
+  const buyProfit = state.purchases.reduce((a,p)=>a+p.totalProfit,0);
+  const sellTotal = state.sales.reduce((a,p)=>a+p.totalAmount,0);
+  const ovh = state.overheadCosts.reduce((a,o)=>a+o.amount,0);
+  const stockVal = state.materials.reduce((a,m)=>a+m.buyPrice*m.stock,0);
+  const head = (t, i, n)=>`<div class="bk-head"><div><b>${esc(shop)}</b> · ไฟล์สำรองข้อมูล</div><div>${esc(stamp)} · หน้า ${i}/${n}</div></div><div class="bk-title">${t}</div>`;
+  const chunk = (arr, n)=>{ const o=[]; for(let i=0;i<arr.length;i+=n) o.push(arr.slice(i,i+n)); return o; };
+  const sec = [];
+  const itemTxt = it => it.map(x=>`${esc(x.name)} ${formatQty(x.qty)}${esc(x.unit)}`).join(', ');
+  const matRows = chunk(state.materials, 38).map(rows=>`<table class="bk-t"><thead><tr><th>ประเภท</th><th>หมวด</th><th>หน่วย</th><th class="r">รับซื้อ</th><th class="r">ขาย</th><th class="r">สต๊อก</th></tr></thead><tbody>${rows.map(m=>`<tr><td>${esc(m.name)}</td><td>${esc(m.category)}</td><td>${esc(m.unit)}</td><td class="r">${money(m.buyPrice)}</td><td class="r">${money(m.sellPrice)}</td><td class="r">${formatQty(m.stock)}</td></tr>`).join('')}</tbody></table>`);
+  const ovhRows = state.overheadCosts.length ? [`<table class="bk-t"><thead><tr><th>รายการ</th><th>ความถี่</th><th class="r">จำนวนเงิน</th></tr></thead><tbody>${state.overheadCosts.map(o=>`<tr><td>${esc(o.name)}</td><td>${FREQ_LABEL[o.frequency]||''}</td><td class="r">${money(o.amount)}</td></tr>`).join('')}</tbody></table>`] : [];
+  const buyRows = chunk(state.purchases, 24).map(rows=>`<table class="bk-t"><thead><tr><th>เลขที่</th><th>วันที่</th><th>ผู้ขาย</th><th>รายการ</th><th class="r">จ่าย</th><th class="r">กำไร</th></tr></thead><tbody>${rows.map(p=>`<tr><td>#${String(p.no).padStart(4,'0')}</td><td>${fmtDate(p.date)}</td><td>${esc(p.sellerName||'-')}</td><td class="sm">${itemTxt(p.items)}</td><td class="r">${money(p.totalCost)}</td><td class="r">${money(p.totalProfit)}</td></tr>`).join('')}</tbody></table>`);
+  const sellRows = chunk(state.sales, 24).map(rows=>`<table class="bk-t"><thead><tr><th>เลขที่</th><th>วันที่</th><th>ผู้ซื้อ</th><th>รายการ</th><th class="r">รับเงิน</th></tr></thead><tbody>${rows.map(p=>`<tr><td>#S${String(p.no).padStart(4,'0')}${p.wholesale?' (ส่ง)':''}</td><td>${fmtDate(p.date)}</td><td>${esc(p.buyerName||'-')}</td><td class="sm">${itemTxt(p.items)}</td><td class="r">${money(p.totalAmount)}</td></tr>`).join('')}</tbody></table>`);
+  const bodies = [];
+  bodies.push(['สรุปภาพรวม ณ วันที่สำรอง', `<div class="bk-cards">
+      <div><span>ใบรับซื้อ</span><b>${state.purchases.length}</b></div><div><span>ใบขาย</span><b>${state.sales.length}</b></div>
+      <div><span>จ่ายซื้อของรวม</span><b>${bkMoney(buyTotal)}</b></div><div><span>กำไรขั้นต้นรวม</span><b>${bkMoney(buyProfit)}</b></div>
+      <div><span>รับเงินจากการขายรวม</span><b>${bkMoney(sellTotal)}</b></div><div><span>ต้นทุนแฝง (ต่อรอบ รวมทุกรายการ)</span><b>${bkMoney(ovh)}</b></div>
+      <div><span>มูลค่าสต๊อก (ราคารับซื้อ)</span><b>${bkMoney(stockVal)}</b></div><div><span>จำนวนประเภทสินค้า</span><b>${state.materials.length}</b></div></div>
+      <div class="bk-note">ไฟล์นี้คือภาพรวมข้อมูลก่อนล้างระบบ รายละเอียดทุกใบอยู่ในหน้าถัดไป</div>`]);
+  matRows.forEach((h,i)=>bodies.push([`ประเภทสินค้า / ราคา / สต๊อก${matRows.length>1?` (${i+1}/${matRows.length})`:''}`, h]));
+  ovhRows.forEach(h=>bodies.push(['ต้นทุนแฝง / ค่าใช้จ่ายประจำ', h]));
+  buyRows.forEach((h,i)=>bodies.push([`ใบรับซื้อทั้งหมด${buyRows.length>1?` (${i+1}/${buyRows.length})`:''}`, h]));
+  sellRows.forEach((h,i)=>bodies.push([`ใบขายทั้งหมด${sellRows.length>1?` (${i+1}/${sellRows.length})`:''}`, h]));
+  return bodies.map((b,i)=>`<div class="bk-page">${head(b[0], i+1, bodies.length)}${b[1]}</div>`);
+}
+async function makeBackupFiles(){
+  if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
+  const pages = backupPagesHTML();
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed; left:-9999px; top:0; width:794px;';
+  document.body.appendChild(wrap);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:'mm', format:'a4' });
+  try{
+    for(let i=0;i<pages.length;i++){
+      wrap.innerHTML = pages[i];
+      const node = wrap.firstElementChild;
+      const canvas = await html2canvas(node, { scale:1.6, backgroundColor:'#ffffff', windowWidth:794 });
+      if(i>0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+    }
+  } finally { document.body.removeChild(wrap); }
+  const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  pdf.save(`สำรองข้อมูล-${stamp}.pdf`);
+  // JSON สำรองไว้นำเข้าใหม่ได้ (ไฟล์เล็ก)
+  const blob = new Blob([JSON.stringify({ exportedAt:new Date().toISOString(), shop:state.shop, materials:state.materials, overheadCosts:state.overheadCosts, purchases:state.purchases, sales:state.sales }, null, 1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `สำรองข้อมูล-${stamp}.json`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  return pages.length;
+}
+
+function openResetSecretModal(){
+  const fld = 'width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink); margin-bottom:10px;';
+  openModal('ตั้ง/เปลี่ยนรหัสล้างระบบ', `
+    <div id="rsBody">
+      <div class="field-hint" style="margin-bottom:10px;">ตั้งรหัส 3 ชั้นตามลำดับ (ไม่สนตัวพิมพ์เล็กใหญ่ และเว้นวรรค) ช่องนี้แสดงตัวอักษรให้เห็นเพื่อกันพิมพ์ผิด</div>
+      <div id="rsOld" style="display:none;"><div class="field-hint" style="margin:8px 0 6px;"><b>รหัสเดิม</b></div>
+        <input type="password" id="rsO1" placeholder="รหัสเดิม ชั้นที่ 1" autocomplete="off" style="${fld}">
+        <input type="password" id="rsO2" placeholder="รหัสเดิม ชั้นที่ 2" autocomplete="off" style="${fld}">
+        <input type="password" id="rsO3" placeholder="รหัสเดิม ชั้นที่ 3" autocomplete="off" style="${fld}">
+        <div class="field-hint" style="margin:8px 0 6px;"><b>รหัสใหม่</b></div></div>
+      <input type="text" id="rsN1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}">
+      <input type="text" id="rsN2" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
+      <input type="text" id="rsN3" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
+      <div class="field-hint">จำให้ได้ ระบบไม่มีทางเอารหัสกลับมาดูได้</div>
+    </div>`, `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn primary" id="rsSave">บันทึกรหัส</button>`);
+  document.getElementById('rsCancel').onclick = closeModal;
+  sb.rpc('reset_secret_status').then(({data,error})=>{ if(!error && data){ const o=document.getElementById('rsOld'); if(o) o.style.display='block'; } });
+  document.getElementById('rsSave').onclick = async ()=>{
+    const v = id => document.getElementById(id).value;
+    if(!v('rsN1').trim()||!v('rsN2').trim()||!v('rsN3').trim()){ toast('กรอกรหัสใหม่ให้ครบทั้ง 3 ช่อง','err'); return; }
+    const btn = document.getElementById('rsSave'); btn.disabled = true;
+    const args = { n1:v('rsN1'), n2:v('rsN2'), n3:v('rsN3') };
+    if(document.getElementById('rsOld').style.display!=='none'){ args.o1=v('rsO1'); args.o2=v('rsO2'); args.o3=v('rsO3'); }
+    const { data, error } = await sb.rpc('set_reset_secret', args);
+    btn.disabled = false;
+    if(error){ toast('บันทึกไม่สำเร็จ: '+friendlyErr(error)+' (ถ้าขึ้นว่าไม่พบฟังก์ชัน ให้รัน schema.sql ใหม่)','err'); return; }
+    if(data && data.locked){ toast('ใส่ผิดหลายครั้ง ถูกล็อกชั่วคราว ลองใหม่ใน 15 นาที','err'); return; }
+    if(!data || !data.ok){ toast('รหัสเดิมไม่ถูกต้อง','err'); return; }
+    closeModal(); toast('ตั้งรหัสล้างระบบแล้ว');
+  };
+}
+
+function openResetModal(){
+  const fld = 'width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink); margin-bottom:10px;';
+  let backedUp = false;
+  openModal('ล้างระบบ', `
+    <div class="field-hint" style="margin-bottom:12px; color:var(--loss);"><b>การล้างย้อนกลับไม่ได้</b> ใบรับซื้อ/ใบขายทั้งหมดและต้นทุนแฝงจะหาย ราคาและสต๊อกเป็น 0 เลขที่ใบเสร็จเริ่ม #0001 ใหม่</div>
+    <div class="reset-step"><b>ขั้นที่ 1</b> โหลดไฟล์สำรองก่อน
+      <button class="btn small" id="rsBackup" style="margin-top:8px; width:100%; justify-content:center;">${ic('download')} สร้างและโหลดไฟล์สำรอง PDF</button></div>
+    <div class="reset-step" id="rsStep2" style="opacity:.4; pointer-events:none;"><b>ขั้นที่ 2</b> ใส่รหัส
+      <input type="password" id="rsP1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:8px;">
+      <input type="password" id="rsP2" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
+      <input type="password" id="rsP3" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer;"><input type="checkbox" id="rsCat"> ลบรายการประเภทสินค้าทิ้งด้วย (ไม่ติ๊ก = เก็บชื่อสินค้าไว้ ราคา/สต๊อกเป็น 0)</label></div>`,
+    `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn danger" id="rsGo" disabled>ล้างระบบ</button>`);
+  document.getElementById('rsCancel').onclick = closeModal;
+  document.getElementById('rsBackup').onclick = async ()=>{
+    const b = document.getElementById('rsBackup'); b.disabled = true; b.textContent = 'กำลังสร้างไฟล์สำรอง…';
+    try{
+      const n = await makeBackupFiles(); backedUp = true;
+      b.textContent = `✓ โหลดไฟล์สำรองแล้ว (${n} หน้า)`;
+      const st = document.getElementById('rsStep2'); st.style.opacity = 1; st.style.pointerEvents = 'auto';
+      document.getElementById('rsGo').disabled = false;
+    }catch(e){ console.error(e); b.disabled = false; b.innerHTML = ic('download')+' ลองสร้างไฟล์สำรองอีกครั้ง'; toast('สร้างไฟล์สำรองไม่สำเร็จ ยังล้างระบบไม่ได้','err'); }
+  };
+  document.getElementById('rsGo').onclick = async ()=>{
+    if(!backedUp) return;
+    const v = id => document.getElementById(id).value;
+    if(!v('rsP1')||!v('rsP2')||!v('rsP3')){ toast('ใส่รหัสให้ครบ','err'); return; }
+    const go = document.getElementById('rsGo'); go.disabled = true;
+    const { data, error } = await sb.rpc('reset_system', { p1:v('rsP1'), p2:v('rsP2'), p3:v('rsP3'), wipe_catalog: document.getElementById('rsCat').checked });
+    go.disabled = false;
+    if(error){ toast('ล้างระบบไม่สำเร็จ: '+friendlyErr(error)+' (ถ้าขึ้นว่าไม่พบฟังก์ชัน ให้รัน schema.sql ใหม่)','err'); return; }
+    if(data && data.notset){ toast('ยังไม่ได้ตั้งรหัส กด "ตั้ง/เปลี่ยนรหัส" ก่อน','err'); return; }
+    if(data && data.locked){ toast('ใส่ผิดหลายครั้ง ถูกล็อก 15 นาที','err'); return; }
+    if(!data || !data.ok){ toast('รหัสไม่ถูกต้อง','err'); return; }
+    closeModal();
+    state.cart = []; state.sellCart = []; txIds.buy = null; txIds.sell = null; saveState();
+    await pullAll(true); renderContent();
+    toast('ล้างระบบเรียบร้อย เริ่มนับใหม่');
+  };
 }
 
 function sampleReceiptForPreview(){
@@ -2474,6 +2629,15 @@ function bindContentEvents(){
   if(sellSearch){
     sellSearch.addEventListener('input', ()=>{ state.ui.sellQ = sellSearch.value; renderContent(); });
   }
+  const rsB = document.getElementById('btnResetSystem'); if(rsB) rsB.onclick = ()=>{
+    sb.rpc('reset_secret_status').then(({data,error})=>{
+      if(error){ toast('ใช้ไม่ได้: '+friendlyErr(error)+' (ให้รัน schema.sql ใหม่ใน Supabase)','err'); return; }
+      if(!data){ toast('ยังไม่ได้ตั้งรหัส กด "ตั้ง/เปลี่ยนรหัส" ก่อน','err'); return; }
+      openResetModal();
+    });
+  };
+  const rsS = document.getElementById('btnResetSecret'); if(rsS) rsS.onclick = openResetSecretModal;
+  const rsK = document.getElementById('btnBackupOnly'); if(rsK) rsK.onclick = async ()=>{ rsK.disabled=true; try{ const n=await makeBackupFiles(); toast(`โหลดไฟล์สำรองแล้ว (${n} หน้า)`);}catch(e){ console.error(e); toast('สร้างไฟล์สำรองไม่สำเร็จ','err'); } rsK.disabled=false; };
   const wsT = document.getElementById('wsToggle');
   if(wsT) wsT.onclick = ()=>{
     if(state.sellCart.length){ toast('ล้างรายการขายก่อน แล้วค่อยสลับโหมด','err'); return; }
