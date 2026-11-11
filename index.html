@@ -559,6 +559,27 @@
   .table-scroll .btn.small.icon-only{ padding:6px; }
   .table-scroll td.num .btn + .btn{ margin-top:4px; }
 }
+
+.mobile-only{ display:none; }
+@media (max-width:820px){
+  .mobile-only{ display:block; }
+  #btnLogout{ display:none; }
+  table.rt, table.rt tbody{ display:block; width:100%; }
+  table.rt thead{ display:none; }
+  table.rt tr{ display:block; position:relative; margin:0 12px 12px; padding:6px 14px; background:var(--paper); border-radius:20px; border:none; }
+  table.rt tbody tr:hover{ background:var(--paper); }
+  table.rt td{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0 !important; border-bottom:1px solid var(--line); font-size:14px; text-align:right; white-space:normal; }
+  table.rt td:last-child{ border-bottom:none; }
+  table.rt td[data-label]::before{ content:attr(data-label); font-size:12px; color:var(--muted); font-weight:600; text-align:left; flex:0 0 auto; }
+  table.rt.rt-stock td:first-child::before{ display:none; }
+  table.rt td:first-child{ justify-content:flex-start; text-align:left; }
+  table.rt.rt-rcpt td.ck{ position:absolute; right:12px; top:10px; padding:0 !important; border:none; width:auto; }
+  table.rt.rt-rcpt td.ck + td{ justify-content:flex-start; padding-right:40px !important; }
+  table.rt .qty-edit input{ width:84px !important; }
+  table.rt td:last-child{ justify-content:flex-end; }
+  table.rt td:last-child::before{ margin-right:auto; }
+  .table-scroll:has(table.rt){ padding:4px 0 8px; }
+}
 </style>
 </head>
 <body>
@@ -777,6 +798,14 @@ function render(){
   renderContent();
 }
 
+function labelTables(root){
+  root.querySelectorAll('table.rt').forEach(t=>{
+    const heads=[...t.querySelectorAll('thead th')].map(h=>h.textContent.trim());
+    t.querySelectorAll('tbody tr').forEach(tr=>{
+      [...tr.children].forEach((td,i)=>{ if(heads[i] && !td.classList.contains('ck')) td.setAttribute('data-label',heads[i]); });
+    });
+  });
+}
 function renderContent(){
   const c = document.getElementById('content');
   if(!allowedTabs().some(t=>t.id===state.ui.tab)){ render(); return; }
@@ -788,6 +817,7 @@ function renderContent(){
   else if(state.ui.tab==='settings') c.innerHTML = viewSettings();
   const cartShowing = (state.ui.tab==='pos' && state.cart.length>0) || (state.ui.tab==='sell' && state.sellCart.length>0);
   c.classList.toggle('has-cart-bar', cartShowing);
+  labelTables(c);
   bindContentEvents();
   const chartCols = c.querySelector('.chart-cols'); if(chartCols) chartCols.scrollLeft = chartCols.scrollWidth;
   if(state.ui.tab==='settings') loadUsersPanel();
@@ -1196,7 +1226,7 @@ function viewStock(){
         </div>
       </div>
       ${list.length ? `
-      <div class="table-scroll"><table>
+      <div class="table-scroll"><table class="rt rt-stock">
         <thead><tr><th>ประเภทของเก่า</th><th>หมวดหมู่</th><th class="num">รับซื้อ/หน่วย</th><th class="num">ขายต่อ/หน่วย</th><th class="num">คงเหลือ</th><th class="num">จัดการ</th></tr></thead>
         <tbody>
           ${list.map(m=>`
@@ -1741,7 +1771,7 @@ function viewPurchaseHistory(){
         </div>
       </div>
       ${list.length ? `
-      <div class="table-scroll"><table>
+      <div class="table-scroll"><table class="rt rt-rcpt">
         <thead><tr>
           <th style="width:34px;"><input type="checkbox" id="selectAllReceipts" ${allSelected?'checked':''}></th>
           <th>เลขที่</th><th>วันที่ - เวลา</th><th>ผู้ขาย</th><th class="num">จำนวนรายการ</th><th class="num">จ่ายรวม</th>${isAdmin()?'<th class="num">กำไร</th>':''}<th class="num">จัดการ</th>
@@ -1749,7 +1779,7 @@ function viewPurchaseHistory(){
         <tbody>
           ${list.map(p=>`
             <tr class="receipt-list-row" data-view-receipt="${p.id}">
-              <td onclick="event.stopPropagation()"><input type="checkbox" data-select-receipt="${p.id}" ${selectedReceiptIds.has(p.id)?'checked':''}></td>
+              <td class="ck" onclick="event.stopPropagation()"><input type="checkbox" data-select-receipt="${p.id}" ${selectedReceiptIds.has(p.id)?'checked':''}></td>
               <td class="mono">#${String(p.no).padStart(4,'0')}</td>
               <td>${fmtDate(p.date)}</td>
               <td>${p.sellerName ? esc(p.sellerName) : '<span style="color:var(--muted);">—</span>'}</td>
@@ -1773,7 +1803,7 @@ function viewSaleHistory(){
     <div class="panel">
       <div class="panel-head"><h2>ประวัติการขายออก (${state.sales.length})</h2></div>
       ${list.length ? `
-      <div class="table-scroll"><table>
+      <div class="table-scroll"><table class="rt rt-rcpt">
         <thead><tr><th>เลขที่</th><th>วันที่ - เวลา</th><th>ผู้ซื้อ</th><th class="num">จำนวนรายการ</th><th class="num">รับเงินรวม</th><th class="num">จัดการ</th></tr></thead>
         <tbody>
           ${list.map(s=>`
@@ -2035,7 +2065,7 @@ function compressImageToPNG(file, onDone, onError){
 /* ================= SETTINGS ================= */
 function viewSettings(){
   const s = state.shop;
-  return viewUsersPanel() + `
+  return `<div class="mobile-only" style="margin-bottom:14px;"><button class="btn" id="btnLogout2" style="width:100%; justify-content:center; padding:12px;">ออกจากระบบ</button></div>` + viewUsersPanel() + `
     <div class="panel" style="max-width:520px;">
       <div class="panel-head"><h2>ข้อมูลร้านค้า</h2></div>
       <div class="modal-body">
@@ -2171,6 +2201,7 @@ function bindContentEvents(){
   if(btnExportDashboardPDF) btnExportDashboardPDF.onclick = ()=> exportDashboardPDF(state.ui.dashPeriod || 'day');
 
   if(state.ui.tab !== 'stock') window.__stockTyping = false;
+  const lo2=document.getElementById('btnLogout2'); if(lo2) lo2.onclick=logout;
   // stock search
   const stockSearch = document.getElementById('stockSearch');
   if(stockSearch){
