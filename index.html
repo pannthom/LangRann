@@ -2490,9 +2490,9 @@ function openResetSecretModal(){
     <div id="rsBody">
       <div class="field-hint" style="margin-bottom:10px;">ตั้งรหัส 3 ชั้นตามลำดับ (ไม่สนตัวพิมพ์เล็กใหญ่ และเว้นวรรค) ช่องนี้แสดงตัวอักษรให้เห็นเพื่อกันพิมพ์ผิด</div>
       <div id="rsOld" style="display:none;"><div class="field-hint" style="margin:8px 0 6px;"><b>รหัสเดิม</b></div>
-        <input type="password" id="rsO1" placeholder="รหัสเดิม ชั้นที่ 1" autocomplete="off" style="${fld}">
-        <input type="password" id="rsO2" placeholder="รหัสเดิม ชั้นที่ 2" autocomplete="off" style="${fld}">
-        <input type="password" id="rsO3" placeholder="รหัสเดิม ชั้นที่ 3" autocomplete="off" style="${fld}">
+        <input type="text" id="rsO1" autocapitalize="off" spellcheck="false" placeholder="รหัสเดิม ชั้นที่ 1" autocomplete="off" style="${fld}">
+        <input type="text" id="rsO2" autocapitalize="off" spellcheck="false" placeholder="รหัสเดิม ชั้นที่ 2" autocomplete="off" style="${fld}">
+        <input type="text" id="rsO3" autocapitalize="off" spellcheck="false" placeholder="รหัสเดิม ชั้นที่ 3" autocomplete="off" style="${fld}">
         <div class="field-hint" style="margin:8px 0 6px;"><b>รหัสใหม่</b></div></div>
       <input type="text" id="rsN1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}">
       <input type="text" id="rsN2" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
@@ -2521,9 +2521,9 @@ function openResetModal(){
   openModal('ล้างระบบ', `
     <div class="field-hint" style="margin-bottom:12px; color:var(--loss);"><b>การล้างย้อนกลับไม่ได้</b> ใบรับซื้อ/ใบขายทั้งหมดและต้นทุนแฝงจะหาย ราคาและสต๊อกเป็น 0 เลขที่ใบเสร็จเริ่ม #0001 ใหม่</div>
     <div class="reset-step">ระบบจะ<b>โหลดไฟล์สำรอง (PDF + JSON) ให้อัตโนมัติ</b>ก่อนล้างทุกครั้ง ถ้าโหลดไม่สำเร็จจะไม่ล้าง
-      <input type="password" id="rsP1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:10px;">
-      <input type="password" id="rsP2" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
-      <input type="password" id="rsP3" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
+      <input type="text" id="rsP1" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:10px;">
+      <input type="text" id="rsP2" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
+      <input type="text" id="rsP3" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
       <label style="display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer;"><input type="checkbox" id="rsCat"> ลบรายการประเภทสินค้าทิ้งด้วย (ไม่ติ๊ก = เก็บชื่อสินค้าไว้ ราคา/สต๊อกเป็น 0)</label></div>
     <div id="rsMsg" class="field-hint"></div>`,
     `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn danger" id="rsGo">สำรองข้อมูลแล้วล้างระบบ</button>`);
