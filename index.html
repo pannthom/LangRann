@@ -2406,7 +2406,7 @@ function viewSettings(){
     <div class="panel danger-zone" style="max-width:640px; margin-top:18px;">
       <div class="panel-head"><h2>ล้างระบบ (Reset)</h2></div>
       <div class="modal-body">
-        <div class="field-hint" style="margin-bottom:12px;">ล้างใบรับซื้อ/ใบขาย ต้นทุนแฝง ตั้งราคาและสต๊อกเป็น 0 และเริ่มนับเลขที่ใบเสร็จที่ 1 ใหม่ — ระบบจะให้โหลดไฟล์สำรอง PDF ก่อนเสมอ และต้องใส่รหัส 3 ชั้น</div>
+        <div class="field-hint" style="margin-bottom:12px;">ล้างใบรับซื้อ/ใบขาย ต้นทุนแฝง ตั้งราคาและสต๊อกเป็น 0 และเริ่มนับเลขที่ใบเสร็จที่ 1 ใหม่ — ระบบจะโหลดไฟล์สำรอง PDF ให้อัตโนมัติก่อนล้างทุกครั้ง และต้องใส่รหัส 3 ชั้น</div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn danger" id="btnResetSystem">ล้างระบบ</button>
           <button class="btn ghost" id="btnResetSecret">ตั้ง/เปลี่ยนรหัส</button>
@@ -2507,42 +2507,44 @@ function openResetSecretModal(){
 
 function openResetModal(){
   const fld = 'width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink); margin-bottom:10px;';
-  let backedUp = false;
   openModal('ล้างระบบ', `
     <div class="field-hint" style="margin-bottom:12px; color:var(--loss);"><b>การล้างย้อนกลับไม่ได้</b> ใบรับซื้อ/ใบขายทั้งหมดและต้นทุนแฝงจะหาย ราคาและสต๊อกเป็น 0 เลขที่ใบเสร็จเริ่ม #0001 ใหม่</div>
-    <div class="reset-step"><b>ขั้นที่ 1</b> โหลดไฟล์สำรองก่อน
-      <button class="btn small" id="rsBackup" style="margin-top:8px; width:100%; justify-content:center;">${ic('download')} สร้างและโหลดไฟล์สำรอง PDF</button></div>
-    <div class="reset-step" id="rsStep2" style="opacity:.4; pointer-events:none;"><b>ขั้นที่ 2</b> ใส่รหัส
-      <input type="password" id="rsP1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:8px;">
+    <div class="reset-step">ระบบจะ<b>โหลดไฟล์สำรอง (PDF + JSON) ให้อัตโนมัติ</b>ก่อนล้างทุกครั้ง ถ้าโหลดไม่สำเร็จจะไม่ล้าง
+      <input type="password" id="rsP1" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:10px;">
       <input type="password" id="rsP2" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
       <input type="password" id="rsP3" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
-      <label style="display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer;"><input type="checkbox" id="rsCat"> ลบรายการประเภทสินค้าทิ้งด้วย (ไม่ติ๊ก = เก็บชื่อสินค้าไว้ ราคา/สต๊อกเป็น 0)</label></div>`,
-    `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn danger" id="rsGo" disabled>ล้างระบบ</button>`);
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer;"><input type="checkbox" id="rsCat"> ลบรายการประเภทสินค้าทิ้งด้วย (ไม่ติ๊ก = เก็บชื่อสินค้าไว้ ราคา/สต๊อกเป็น 0)</label></div>
+    <div id="rsMsg" class="field-hint"></div>`,
+    `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn danger" id="rsGo">สำรองข้อมูลแล้วล้างระบบ</button>`);
   document.getElementById('rsCancel').onclick = closeModal;
-  document.getElementById('rsBackup').onclick = async ()=>{
-    const b = document.getElementById('rsBackup'); b.disabled = true; b.textContent = 'กำลังสร้างไฟล์สำรอง…';
-    try{
-      const n = await makeBackupFiles(); backedUp = true;
-      b.textContent = `✓ โหลดไฟล์สำรองแล้ว (${n} หน้า)`;
-      const st = document.getElementById('rsStep2'); st.style.opacity = 1; st.style.pointerEvents = 'auto';
-      document.getElementById('rsGo').disabled = false;
-    }catch(e){ console.error(e); b.disabled = false; b.innerHTML = ic('download')+' ลองสร้างไฟล์สำรองอีกครั้ง'; toast('สร้างไฟล์สำรองไม่สำเร็จ ยังล้างระบบไม่ได้','err'); }
-  };
   document.getElementById('rsGo').onclick = async ()=>{
-    if(!backedUp) return;
     const v = id => document.getElementById(id).value;
+    const msg = t => { const m = document.getElementById('rsMsg'); if(m) m.textContent = t; };
     if(!v('rsP1')||!v('rsP2')||!v('rsP3')){ toast('ใส่รหัสให้ครบ','err'); return; }
     const go = document.getElementById('rsGo'); go.disabled = true;
-    const { data, error } = await sb.rpc('reset_system', { p1:v('rsP1'), p2:v('rsP2'), p3:v('rsP3'), wipe_catalog: document.getElementById('rsCat').checked });
-    go.disabled = false;
-    if(error){ toast('ล้างระบบไม่สำเร็จ: '+friendlyErr(error)+' (ถ้าขึ้นว่าไม่พบฟังก์ชัน ให้รัน schema.sql ใหม่)','err'); return; }
-    if(data && data.notset){ toast('ยังไม่ได้ตั้งรหัส กด "ตั้ง/เปลี่ยนรหัส" ก่อน','err'); return; }
-    if(data && data.locked){ toast('ใส่ผิดหลายครั้ง ถูกล็อก 15 นาที','err'); return; }
-    if(!data || !data.ok){ toast('รหัสไม่ถูกต้อง','err'); return; }
+    const args = { p1:v('rsP1'), p2:v('rsP2'), p3:v('rsP3') };
+    const wipe_catalog = document.getElementById('rsCat').checked;
+    const fail = (m)=>{ go.disabled = false; msg(''); toast(m,'err'); };
+    // 1) ตรวจรหัสก่อน (ยังไม่ล้างอะไร)
+    msg('กำลังตรวจรหัส…');
+    const chk = await sb.rpc('reset_check', args);
+    if(chk.error) return fail('ใช้ไม่ได้: '+friendlyErr(chk.error)+' (ให้รัน schema.sql ใหม่ใน Supabase)');
+    if(chk.data && chk.data.notset) return fail('ยังไม่ได้ตั้งรหัส กด "ตั้ง/เปลี่ยนรหัส" ก่อน');
+    if(chk.data && chk.data.locked) return fail('ใส่ผิดหลายครั้ง ถูกล็อก 15 นาที');
+    if(!chk.data || !chk.data.ok) return fail('รหัสไม่ถูกต้อง');
+    // 2) โหลดไฟล์สำรองอัตโนมัติ — ถ้าไม่สำเร็จ ไม่ล้าง
+    msg('รหัสถูกต้อง กำลังสร้างและโหลดไฟล์สำรอง…');
+    try{ await makeBackupFiles(); }
+    catch(e){ console.error(e); return fail('สร้างไฟล์สำรองไม่สำเร็จ จึงยังไม่ล้างระบบ'); }
+    // 3) ล้างจริง
+    msg('กำลังล้างระบบ…');
+    const { data, error } = await sb.rpc('reset_system', Object.assign({ wipe_catalog }, args));
+    if(error) return fail('ล้างระบบไม่สำเร็จ: '+friendlyErr(error));
+    if(!data || !data.ok) return fail('ล้างระบบไม่สำเร็จ (รหัสไม่ผ่าน)');
     closeModal();
     state.cart = []; state.sellCart = []; txIds.buy = null; txIds.sell = null; saveState();
     await pullAll(true); renderContent();
-    toast('ล้างระบบเรียบร้อย เริ่มนับใหม่');
+    toast('โหลดไฟล์สำรองแล้ว และล้างระบบเรียบร้อย เริ่มนับใหม่');
   };
 }
 

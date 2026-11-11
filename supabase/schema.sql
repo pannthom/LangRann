@@ -300,6 +300,27 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- ตรวจรหัสอย่างเดียว ไม่ล้างอะไร (แอปใช้ก่อนโหลดไฟล์สำรองอัตโนมัติ)
+create or replace function public.reset_check(p1 text, p2 text, p3 text)
+returns jsonb language plpgsql security definer set search_path = public
+as $$
+declare r public.reset_secret;
+begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  select * into r from public.reset_secret where id = 1 for update;
+  if not found then return jsonb_build_object('ok', false, 'notset', true); end if;
+  if r.locked_until is not null and r.locked_until > now() then return jsonb_build_object('ok', false, 'locked', true); end if;
+  if r.hash <> public._reset_hash(r.salt, p1, p2, p3) then
+    update public.reset_secret set
+      locked_until = case when fail_count + 1 >= 5 then now() + interval '15 minutes' else locked_until end,
+      fail_count   = case when fail_count + 1 >= 5 then 0 else fail_count + 1 end
+     where id = 1;
+    return jsonb_build_object('ok', false);
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.reset_check(text,text,text) to authenticated;
+
 grant execute on function public.reset_secret_status()                                  to authenticated;
 grant execute on function public.set_reset_secret(text,text,text,text,text,text)       to authenticated;
 grant execute on function public.reset_system(text,text,text,boolean)                  to authenticated;
