@@ -679,6 +679,17 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 
 .theme-btn{ min-width:0; white-space:nowrap; }
 @media (max-width:520px){ .theme-btn span{ display:none; } }
+
+/* slimmer chart bars */
+.chart-cols{ gap:6px; }
+.cc{ min-width:30px; }
+.cc-pos, .cc-neg{ max-width:20px !important; }
+.cc-pos{ background:transparent !important; }
+.cc-bar{ border-radius:999px; }
+.cc-bar.neg{ border-radius:999px; }
+.cc-zero{ border-top:1px dashed var(--line); margin:3px 0; }
+.cc-pill{ right:-8px; font-size:11px; padding:3px 9px; }
+@media (max-width:520px){ .cc{ min-width:26px; } .cc-pos, .cc-neg{ max-width:16px !important; } }
 </style>
 </head>
 <body>
@@ -1036,7 +1047,7 @@ const MIX_COLORS = ['#0B4DDB','#C6EE17','#1B1E25','#9DB6F7','#B9C0CC','#7C8AA5']
 
 function chartHTML(buckets, maxAbs){
   const hasNeg = buckets.some(b=>b.net<0);
-  const POS_H = hasNeg ? 120 : 190, NEG_H = hasNeg ? 96 : 0;
+  const POS_H = hasNeg ? 104 : 150, NEG_H = hasNeg ? 80 : 0;
   const maxPos = Math.max(1, ...buckets.map(b=>Math.max(0,b.net)));
   const maxNeg = Math.max(1, ...buckets.map(b=>Math.max(0,-b.net)));
   return `<div class="chart-cols">` + buckets.map(b=>{
