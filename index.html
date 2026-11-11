@@ -308,30 +308,52 @@
   }
 
   /* ---- dashboard PDF report ---- */
-  .dash-report{ width:794px; background:#fff; color:#1a1a1a; padding:40px 44px; font-family:"IBM Plex Sans Thai",sans-serif; font-size:13px; line-height:1.5; }
-  .dash-report .dr-head{ display:flex; align-items:center; gap:16px; margin-bottom:6px; }
-  .dash-report .dr-logo{ height:54px; max-width:160px; object-fit:contain; }
-  .dash-report .dr-shop{ font-family:var(--r-shopname-font,"Taviraj",serif); font-size:20px; font-weight:700; }
-  .dash-report .dr-meta{ font-size:11.5px; color:#666; }
-  .dash-report .dr-title{ font-family:"Taviraj",serif; font-size:22px; font-weight:600; text-align:center; margin:18px 0 2px; }
-  .dash-report .dr-cards{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px; }
-  .dash-report .dr-card{ flex:1 1 160px; border:1px solid #ddd6c4; border-radius:6px; padding:12px 14px; box-sizing:border-box; }
-  .dash-report .dr-card-lbl{ font-size:11px; color:#777; margin-bottom:4px; }
-  .dash-report .dr-card-val{ font-family:"Taviraj",serif; font-size:19px; font-weight:700; }
-  .dash-report .dr-card-val.gold{ color:#B4801F; }
-  .dash-report .dr-card-val.brick{ color:#A5402C; }
-  .dash-report .dr-section-title{ font-family:"Taviraj",serif; font-size:15px; font-weight:600; margin:22px 0 10px; border-bottom:2px solid #1C3B37; padding-bottom:5px; }
-  .dash-report .dr-bar-chart{ display:flex; align-items:flex-end; gap:6px; height:150px; padding:10px 4px 0; margin-bottom:6px; }
-  .dash-report .dr-bar-col{ flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; min-width:0; }
-  .dash-report .dr-bar-value{ font-size:9px; color:#777; margin-bottom:3px; white-space:nowrap; }
-  .dash-report .dr-bar{ width:100%; max-width:26px; background:#6E7A61; border-radius:3px 3px 0 0; min-height:2px; }
-  .dash-report .dr-bar.current{ background:#B4801F; }
-  .dash-report .dr-bar.negative{ background:#A5402C; }
-  .dash-report .dr-bar-label{ font-size:9px; color:#777; margin-top:5px; white-space:nowrap; }
-  .dash-report .dr-table{ width:100%; border-collapse:collapse; font-size:12px; }
-  .dash-report .dr-table thead th{ padding:7px 6px; border-bottom:1.5px solid #1C3B37; color:#444; font-size:11px; }
-  .dash-report .dr-table tbody td{ padding:7px 6px; border-bottom:1px solid #eee; }
-  .dash-report .dr-empty{ color:#888; font-size:12.5px; padding:10px 0; }
+  .dash-report{ width:794px; background:#E8EBF1; color:#0F1115; padding:34px 36px 36px; font-family:"IBM Plex Sans Thai",sans-serif; font-size:13px; line-height:1.5; box-sizing:border-box; }
+  .dash-report .dr-head{ display:flex; align-items:center; gap:14px; background:#fff; border-radius:24px; padding:16px 20px; }
+  .dash-report .dr-headtxt{ flex:1 1 auto; min-width:0; }
+  .dash-report .dr-logo{ height:50px; max-width:150px; object-fit:contain; }
+  .dash-report .dr-shop{ font-family:var(--r-shopname-font,"Kanit",sans-serif); font-size:20px; font-weight:700; }
+  .dash-report .dr-meta{ font-size:11.5px; color:#6B7280; }
+  .dash-report .dr-pill{ background:#0F1115; color:#D6F53C; border-radius:999px; padding:7px 18px; font-weight:600; font-size:13px; }
+  .dash-report .dr-title{ font-size:22px; font-weight:700; margin:20px 4px 0; letter-spacing:-0.01em; }
+  .dash-report .dr-title, .dash-report .dr-hero-val, .dash-report .dr-card-val, .dash-report .dr-section-title, .dash-report .dr-pill{ font-family:var(--font-display); }
+  .dash-report .dr-title + .dr-meta{ margin-left:4px; }
+  .dash-report .dr-hero{ border-radius:28px; padding:22px 26px; margin-bottom:12px; }
+  .dash-report .dr-hero.profit{ background:#D6F53C; color:#0F1115; }
+  .dash-report .dr-hero.loss{ background:#D92D20; color:#fff; }
+  .dash-report .dr-hero-top{ display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; }
+  .dash-report .dr-badge{ background:rgba(0,0,0,.14); border-radius:999px; padding:4px 14px; font-size:12px; }
+  .dash-report .dr-hero.profit .dr-badge{ background:#0F1115; color:#D6F53C; }
+  .dash-report .dr-hero-val{ font-size:46px; font-weight:700; letter-spacing:-0.02em; line-height:1.15; margin:6px 0 4px; }
+  .dash-report .dr-hero-formula{ font-size:12.5px; opacity:.85; }
+  .dash-report .dr-cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .dash-report .dr-card{ background:#fff; border-radius:22px; padding:14px 16px; box-sizing:border-box; }
+  .dash-report .dr-card-lbl{ font-size:11.5px; color:#6B7280; margin-bottom:4px; }
+  .dash-report .dr-card-val{ font-size:19px; font-weight:700; letter-spacing:-0.01em; }
+  .dash-report .dr-card-val.profit{ color:#0E8F4B; }
+  .dash-report .dr-card-val.loss{ color:#D92D20; }
+  .dash-report .dr-mini{ font-size:12px; color:#6B7280; margin:10px 6px 0; }
+  .dash-report .dr-section-title{ font-size:15px; font-weight:700; margin:20px 4px 10px; }
+  .dash-report .dr-chart{ background:#fff; border-radius:24px; padding:16px 16px 10px; }
+  .dash-report .dr-chart-top, .dash-report .dr-chart-bot{ display:flex; gap:6px; }
+  .dash-report .dr-chart-top{ height:100px; align-items:flex-end; }
+  .dash-report .dr-chart-bot{ height:100px; align-items:flex-start; }
+  .dash-report .dr-bar-col{ flex:1 1 0; display:flex; flex-direction:column; align-items:center; min-width:0; }
+  .dash-report .dr-chart-top .dr-bar-col{ justify-content:flex-end; height:100%; }
+  .dash-report .dr-bar{ width:100%; max-width:24px; background:#C9D3EE; border-radius:999px; }
+  .dash-report .dr-bar.current{ background:#0B4DDB; }
+  .dash-report .dr-bar.neg{ background:#D92D20; }
+  .dash-report .dr-bar-value{ font-size:9px; color:#6B7280; margin:2px 0; white-space:nowrap; font-weight:600; }
+  .dash-report .dr-bar-value.profit{ color:#0E8F4B; }
+  .dash-report .dr-bar-value.loss{ color:#D92D20; }
+  .dash-report .dr-zero{ height:1.5px; background:#0F1115; opacity:.25; margin:2px 0; }
+  .dash-report .dr-chart-lbls{ display:flex; gap:6px; margin-top:4px; }
+  .dash-report .dr-bar-label{ flex:1 1 0; text-align:center; font-size:9px; color:#6B7280; white-space:nowrap; }
+  .dash-report .dr-bar-label.cur{ color:#0B4DDB; font-weight:700; }
+  .dash-report .dr-table{ width:100%; border-collapse:separate; border-spacing:0; font-size:12px; background:#fff; border-radius:22px; overflow:hidden; }
+  .dash-report .dr-table thead th{ padding:10px 14px; background:#F1F4F9; color:#6B7280; font-size:11px; font-weight:600; }
+  .dash-report .dr-table tbody td{ padding:9px 14px; border-top:1px solid #EEF0F5; }
+  .dash-report .dr-empty{ color:#6B7280; font-size:12.5px; padding:14px 18px; background:#fff; border-radius:20px; }
 
   .layout-editor{ display:grid; grid-template-columns:220px 1fr; gap:22px; align-items:start; }
   @media (max-width:640px){ .layout-editor{ grid-template-columns:1fr; } }
@@ -1102,34 +1124,40 @@ function dashboardReportHTML(period){
     <div class="dash-report" style="--r-shopname-font:${fontCss(state.shop.shopNameFont)};">
       <div class="dr-head">
         ${state.shop.logo ? `<img class="dr-logo" src="${state.shop.logo}" alt="โลโก้ร้าน">` : ''}
-        <div>
+        <div class="dr-headtxt">
           <div class="dr-shop">${esc(state.shop.name)}</div>
           ${state.shop.address ? `<div class="dr-meta">${esc(state.shop.address)}</div>` : ''}
           ${state.shop.phone ? `<div class="dr-meta">โทร ${esc(state.shop.phone)}</div>` : ''}
         </div>
+        <div class="dr-pill">${PERIOD_LABEL[period]}</div>
       </div>
-      <div class="dr-title">รายงานสรุปผลประกอบการ — ${PERIOD_LABEL[period]}</div>
-      <div class="dr-meta" style="text-align:center; margin-bottom:20px;">ออกรายงานเมื่อ ${fmtDate(now.toISOString())}</div>
+      <div class="dr-title">รายงานสรุปผลประกอบการ</div>
+      <div class="dr-meta" style="margin-bottom:16px;">ออกรายงานเมื่อ ${fmtDate(now.toISOString())}</div>
+
+      <div class="dr-hero ${netProfit<0?'loss':'profit'}">
+        <div class="dr-hero-top"><span>${netProfit<0?'ขาดทุนสุทธิ':'กำไรสุทธิ'} · ${PERIOD_LABEL[period]}</span><span class="dr-badge">${netProfit<0?'▼ ขาดทุน':'▲ กำไร'}</span></div>
+        <div class="dr-hero-val">${netProfit<0?'−':'+'}฿${money(Math.abs(netProfit))}</div>
+        <div class="dr-hero-formula">กำไรขั้นต้น ฿${money(current.profit)} &nbsp;−&nbsp; ต้นทุนแฝง ฿${money(overhead)}</div>
+      </div>
 
       <div class="dr-cards">
-        <div class="dr-card"><div class="dr-card-lbl">กำไรขั้นต้น (จากการรับซื้อ)</div><div class="dr-card-val gold">฿${money(current.profit)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">ต้นทุนแฝง</div><div class="dr-card-val brick">−฿${money(overhead)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">กำไรสุทธิ</div><div class="dr-card-val gold">฿${money(netProfit)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">จ่ายให้ผู้ขาย</div><div class="dr-card-val">฿${money(current.cost)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">ยอดขายออกจริง</div><div class="dr-card-val">฿${money(salesTotal)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">น้ำหนัก/จำนวนที่รับซื้อ</div><div class="dr-card-val">${formatQty(current.weight)}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">จำนวนรายการรับซื้อ</div><div class="dr-card-val">${current.count}</div></div>
-        <div class="dr-card"><div class="dr-card-lbl">จำนวนรายการขายออก</div><div class="dr-card-val">${salesInRange.length}</div></div>
+        <div class="dr-card"><div class="dr-card-lbl">กำไรขั้นต้น</div><div class="dr-card-val ${current.profit<0?'loss':'profit'}">${current.profit<0?'−':'+'}฿${money(Math.abs(current.profit))}</div></div>
+        <div class="dr-card"><div class="dr-card-lbl">ต้นทุนแฝง</div><div class="dr-card-val loss">−฿${money(overhead)}</div></div>
+        <div class="dr-card"><div class="dr-card-lbl">จ่ายซื้อของ</div><div class="dr-card-val">฿${money(current.cost)}</div></div>
+        <div class="dr-card"><div class="dr-card-lbl">ยอดขายออก</div><div class="dr-card-val">฿${money(salesTotal)}</div></div>
       </div>
+      <div class="dr-mini">รับซื้อ ${current.count} รายการ · น้ำหนัก/จำนวนรวม ${formatQty(current.weight)} · ขายออก ${salesInRange.length} รายการ</div>
 
-      <div class="dr-section-title">กำไร/ขาดทุนสุทธิย้อนหลัง (หักต้นทุนแฝงแล้ว)</div>
-      <div class="dr-bar-chart">
-        ${buckets.map(b=>`
-          <div class="dr-bar-col">
-            <div class="dr-bar-value">฿${b.net>=1000||b.net<=-1000? (b.net/1000).toFixed(1)+'k' : money(b.net).replace('.00','')}</div>
-            <div class="dr-bar ${b.current?'current':''} ${b.net<0?'negative':''}" style="height:${Math.max(4, Math.round(Math.abs(b.net)/maxAbs*110))}px;"></div>
-            <div class="dr-bar-label">${b.label}</div>
-          </div>`).join('')}
+      <div class="dr-section-title">กำไร/ขาดทุนสุทธิย้อนหลัง</div>
+      <div class="dr-chart">
+        <div class="dr-chart-top">${buckets.map(b=>{
+          const h = b.net>0 ? Math.max(8, Math.round(b.net/maxAbs*70)) : 0;
+          return `<div class="dr-bar-col"><div class="dr-bar-value ${b.net>0?'profit':''}">${b.net>0?shortMoney(b.net):''}</div><div class="dr-bar ${b.current?'current':''}" style="height:${h}px;${h?'':'visibility:hidden;'}"></div></div>`; }).join('')}</div>
+        <div class="dr-zero"></div>
+        <div class="dr-chart-bot">${buckets.map(b=>{
+          const h = b.net<0 ? Math.max(8, Math.round(-b.net/maxAbs*70)) : 0;
+          return `<div class="dr-bar-col"><div class="dr-bar neg" style="height:${h}px;${h?'':'visibility:hidden;'}"></div><div class="dr-bar-value ${b.net<0?'loss':''}">${b.net<0?'−'+shortMoney(-b.net):''}</div></div>`; }).join('')}</div>
+        <div class="dr-chart-lbls">${buckets.map(b=>`<div class="dr-bar-label ${b.current?'cur':''}">${b.label}</div>`).join('')}</div>
       </div>
 
       <div class="dr-section-title">สรุปตามประเภทของเก่า — ${PERIOD_LABEL[period]}</div>
@@ -1142,7 +1170,7 @@ function dashboardReportHTML(period){
               <td>${esc(b.name)}</td>
               <td style="text-align:right;">${formatQty(b.qty)} ${esc(b.unit)}</td>
               <td style="text-align:right;">฿${money(b.cost)}</td>
-              <td style="text-align:right;">฿${money(b.profit)}</td>
+              <td style="text-align:right; font-weight:600; color:${b.profit<0?'#D92D20':'#0E8F4B'};">${b.profit<0?'−':'+'}฿${money(Math.abs(b.profit))}</td>
             </tr>`).join('')}
         </tbody>
       </table>` : `<div class="dr-empty">ไม่มีรายการรับซื้อในช่วงนี้</div>`}
@@ -1193,22 +1221,22 @@ async function exportDashboardPDF(period){
     wrapper.innerHTML = dashboardReportHTML(period);
     document.body.appendChild(wrapper);
     const node = wrapper.firstElementChild;
-    const canvas = await html2canvas(node, { scale:2, backgroundColor:'#ffffff', windowWidth:794 });
+    const canvas = await html2canvas(node, { scale:1.5, backgroundColor:'#E8EBF1', windowWidth:794 });
     document.body.removeChild(wrapper);
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit:'mm', format:'a4' });
     const pageWidthMM = 210, pageHeightMM = 297;
     const imgHeightMM = pageWidthMM * canvas.height / canvas.width;
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/jpeg', 0.8);
     let heightLeftMM = imgHeightMM;
     let positionMM = 0;
-    pdf.addImage(imgData, 'PNG', 0, positionMM, pageWidthMM, imgHeightMM);
+    pdf.addImage(imgData, 'JPEG', 0, positionMM, pageWidthMM, imgHeightMM, undefined, 'FAST');
     heightLeftMM -= pageHeightMM;
     while(heightLeftMM > 0){
       positionMM -= pageHeightMM;
       pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, positionMM, pageWidthMM, imgHeightMM);
+      pdf.addImage(imgData, 'JPEG', 0, positionMM, pageWidthMM, imgHeightMM, undefined, 'FAST');
       heightLeftMM -= pageHeightMM;
     }
     const stamp = new Date().toISOString().slice(0,10);
@@ -1958,7 +1986,7 @@ async function renderAnyReceiptCanvas(html){
   wrapper.innerHTML = html;
   document.body.appendChild(wrapper);
   const node = wrapper.firstElementChild;
-  const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: '#ffffff' });
+  const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff' });
   document.body.removeChild(wrapper);
   return canvas;
 }
@@ -1972,8 +2000,8 @@ async function exportSaleReceiptPDF(sale){
     const pdfWidthMM = state.shop.paperWidth || 80;
     const pdfHeightMM = Math.max(120, pdfWidthMM * canvas.height / canvas.width);
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
-    const imgData = canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
     pdf.save(`ใบขาย-S${String(sale.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
@@ -2024,7 +2052,7 @@ async function renderReceiptCanvas(purchase){
   wrapper.innerHTML = receiptHTML(purchase);
   document.body.appendChild(wrapper);
   const node = wrapper.firstElementChild;
-  const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: '#ffffff' });
+  const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff' });
   document.body.removeChild(wrapper);
   return canvas;
 }
@@ -2038,8 +2066,8 @@ async function exportReceiptPDF(purchase){
     const pdfWidthMM = state.shop.paperWidth || 80;
     const pdfHeightMM = Math.max(120, pdfWidthMM * canvas.height / canvas.width);
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
-    const imgData = canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
     pdf.save(`ใบรับซื้อ-${String(purchase.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
@@ -2064,10 +2092,10 @@ async function exportSelectedReceiptsPDF(){
       const purchase = purchasesToExport[i];
       const canvas = await renderReceiptCanvas(purchase);
       const pdfHeightMM = Math.max(120, pdfWidthMM * canvas.height / canvas.width);
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
       if(!pdf){ pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] }); }
       else{ pdf.addPage([pdfWidthMM, pdfHeightMM], 'p'); }
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
       if(btn) btn.textContent = `กำลังสร้างไฟล์... (${i+1}/${purchasesToExport.length})`;
     }
     const stamp = new Date().toISOString().slice(0,10);
