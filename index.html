@@ -613,6 +613,34 @@
   input, select, textarea, .cart-qty-input, .qty-edit input{ font-size:16px !important; }
 }
 html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
+
+/* hero trend animation */
+.hero{ position:relative; overflow:hidden; }
+.hero-sparkwrap{ position:relative; margin-top:12px; }
+.hero-spark{ display:block; width:100%; height:56px; overflow:visible; }
+.hs-dotx{ position:absolute; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:currentColor; }
+.hs-dotx::after{ content:""; position:absolute; inset:0; border-radius:50%; background:currentColor; animation:hsPulse 1.8s ease-out infinite; }
+.hero.anim .hs-dotx{ animation:hsPop .4s 1.25s ease both; }
+.hero-spark .hs-zero{ stroke:currentColor; opacity:.25; stroke-width:1; stroke-dasharray:3 4; vector-effect:non-scaling-stroke; }
+.hero-spark .hs-line{ fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; stroke-dasharray:1; stroke-dashoffset:0; }
+.hero-spark .hs-area{ fill:currentColor; opacity:.14; }
+.hero-spark .hs-dot{ fill:currentColor; }
+.hero .hb-arrow{ display:inline-block; }
+.hero.loss .hb-arrow{ animation:hbDown 1.6s ease-in-out infinite; }
+.hero:not(.loss) .hb-arrow{ animation:hbUp 1.6s ease-in-out infinite; }
+@keyframes hbDown{ 0%,100%{ transform:translateY(-2px); } 50%{ transform:translateY(3px); } }
+@keyframes hbUp{ 0%,100%{ transform:translateY(3px); } 50%{ transform:translateY(-2px); } }
+.hero .hs-dot{ transform-box:fill-box; transform-origin:center; animation:hsPulse 1.8s ease-out infinite; }
+@keyframes hsPulse{ 0%{ transform:scale(1); opacity:1; } 70%{ transform:scale(2.6); opacity:.15; } 100%{ transform:scale(1); opacity:1; } }
+.hero.anim .hs-line{ animation:hsDraw 1.4s cubic-bezier(.3,.7,.2,1) both; }
+.hero.anim .hs-area{ animation:hsFade .9s .7s ease both; }
+.hero.anim .hs-dot{ animation:hsPop .4s 1.25s ease both, hsPulse 1.8s 1.7s ease-out infinite; }
+.hero.anim .hero-formula{ animation:hsRise .6s .25s ease both; }
+@keyframes hsDraw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+@keyframes hsFade{ from{ opacity:0; } to{ opacity:.14; } }
+@keyframes hsPop{ from{ opacity:0; transform:scale(0); } to{ opacity:1; transform:scale(1); } }
+@keyframes hsRise{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .hero *{ animation:none !important; } }
 </style>
 </head>
 <body>
@@ -831,6 +859,19 @@ function render(){
   renderContent();
 }
 
+function runHeroAnim(root){
+  const el = root.querySelector('.hero.anim [data-countup]');
+  if(!el || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+  const target = parseFloat(el.dataset.countup)||0, sign = el.dataset.sign||'';
+  const dur = 1100, t0 = performance.now();
+  const fmt = v => sign+'฿'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const step = now=>{
+    const p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);
+    el.textContent = fmt(target*e);
+    if(p<1 && el.isConnected) requestAnimationFrame(step); else if(el.isConnected) el.textContent = fmt(target);
+  };
+  el.textContent = fmt(0); requestAnimationFrame(step);
+}
 function labelTables(root){
   root.querySelectorAll('table.rt').forEach(t=>{
     const heads=[...t.querySelectorAll('thead th')].map(h=>h.textContent.trim());
@@ -851,6 +892,7 @@ function renderContent(){
   const cartShowing = (state.ui.tab==='pos' && state.cart.length>0) || (state.ui.tab==='sell' && state.sellCart.length>0);
   c.classList.toggle('has-cart-bar', cartShowing);
   labelTables(c);
+  runHeroAnim(c);
   bindContentEvents();
   const chartCols = c.querySelector('.chart-cols'); if(chartCols) chartCols.scrollLeft = chartCols.scrollWidth;
   if(state.ui.tab==='settings') loadUsersPanel();
@@ -968,6 +1010,23 @@ function viewDashboard(){
   const period = state.ui.dashPeriod || 'day';
   const { buckets, current, prev, maxAbs, breakdown, totalStockValue, highStock, overhead, netProfit, salesTotal, salesList } = getDashboardData(period);
   const isLoss = netProfit < 0;
+  const heroKey = period+'|'+netProfit.toFixed(2);
+  const heroAnim = window.__heroKey !== heroKey; window.__heroKey = heroKey;
+  const nets = buckets.map(b=>b.net);
+  const spark = (()=>{
+    if(nets.length<2) return '';
+    const W=300,H=56,P=6; const mn=Math.min(0,...nets), mx=Math.max(0,...nets), rng=(mx-mn)||1;
+    const X=i=>P+i*(W-2*P)/(nets.length-1), Y=v=>P+(mx-v)*(H-2*P)/rng;
+    const pts=nets.map((v,i)=>[X(i),Y(v)]);
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const last=pts[pts.length-1];
+    const dotL=((last[0])/W*100).toFixed(2), dotT=((last[1])/H*100).toFixed(2);
+    return `<div class="hero-sparkwrap"><span class="hs-dotx" style="left:${dotL}%;top:${dotT}%"></span><svg class="hero-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" x2="${W}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" class="hs-zero"/>
+      <path d="${d} L${last[0]} ${Y(0).toFixed(1)} L${pts[0][0]} ${Y(0).toFixed(1)} Z" class="hs-area"/>
+      <path d="${d}" class="hs-line" pathLength="1"/>
+    </svg></div>`;
+  })();
   const prevNet = prev ? prev.net : null;
   let delta = '';
   if(prevNet !== null && prevNet !== 0){
@@ -986,14 +1045,15 @@ function viewDashboard(){
     </div>` : ''}
 
     <div class="dash-grid">
-      <div class="stat-card hero ${isLoss?'loss':''}">
+      <div class="stat-card hero ${isLoss?'loss':''} ${heroAnim?'anim':''}">
         <div>
           <div class="sc-top">
             <div class="sc-label">${isLoss?'ขาดทุนสุทธิ':'กำไรสุทธิ'}${PERIOD_LABEL[period]}</div>
-            <span class="hero-badge">${isLoss?'▼ ขาดทุน':'▲ กำไร'}</span>
+            <span class="hero-badge"><span class="hb-arrow">${isLoss?'▼':'▲'}</span> ${isLoss?'ขาดทุน':'กำไร'}</span>
           </div>
-          <div class="sc-value">${isLoss?'−':''}฿${money(Math.abs(netProfit))}</div>
+          <div class="sc-value" data-countup="${Math.abs(netProfit)}" data-sign="${isLoss?'−':''}">${isLoss?'−':''}฿${money(Math.abs(netProfit))}</div>
           <div style="margin-top:10px;">${delta}</div>
+          ${spark}
         </div>
         <div class="hero-formula">
           <div class="row"><span>กำไรขั้นต้น (ส่วนต่างราคาขาย−ซื้อ)</span><b>฿${money(current.profit)}</b></div>
