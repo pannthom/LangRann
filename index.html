@@ -7,6 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="SPD">
+<script>try{var t=localStorage.getItem('spd_theme'); if(t==='light'||t==='dark') document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <title>หลังร้าน — ระบบรับซื้อของเก่า</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -258,7 +259,7 @@
   .cart-total{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
   .cart-total .lbl{ font-size:13px; color:var(--muted); }
   .cart-total .val{ font-family:var(--font-display); font-size:26px; font-weight:700; color:var(--teal); letter-spacing:-0.02em; }
-  @media (prefers-color-scheme: dark){ .cart-total .val{ color:var(--gold); } }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cart-total .val{ color:var(--gold); } }
   :root[data-theme="dark"] .cart-total .val{ color:var(--gold); }
   .cart-profit-hint{ font-size:12px; color:var(--sage); margin-bottom:12px; font-weight:500; }
 
@@ -402,7 +403,7 @@
     .bn-btn span{ display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .bn-btn svg{ width:21px; height:21px; }
     .bn-btn.active{ color:var(--teal); background:var(--tealsoft); font-weight:600; }
-    @media (prefers-color-scheme: dark){ .bn-btn.active{ color:var(--gold); } }
+    @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .bn-btn.active{ color:var(--gold); } }
     :root[data-theme="dark"] .bn-btn.active{ color:var(--gold); }
     .content{ padding:18px 16px calc(100px + env(safe-area-inset-bottom,0px)); }
     .content.has-cart-bar{ padding-bottom:calc(166px + env(safe-area-inset-bottom,0px)); }
@@ -675,6 +676,9 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 .bk-cards{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .bk-cards > div{ background:#F1F4F9; border-radius:16px; padding:12px 16px; } .bk-cards span{ display:block; color:#6B7280; font-size:11px; } .bk-cards b{ font-size:20px; }
 .bk-note{ margin-top:16px; color:#6B7280; }
+
+.theme-btn{ min-width:0; white-space:nowrap; }
+@media (max-width:520px){ .theme-btn span{ display:none; } }
 </style>
 </head>
 <body>
@@ -873,6 +877,7 @@ function render(){
           ${isAdmin()
             ? `<div class="stat">กำไรขั้นต้นวันนี้ <b class="${todayProfit<0?'loss':'profit'}">${plMoney(todayProfit)}</b> · ${todayPurchases.length} รายการรับซื้อ</div>`
             : `<div class="stat">${esc(profile ? profile.username : '')} · รับซื้อวันนี้ <b>${todayPurchases.length}</b> รายการ</div>`}
+          <button class="btn small theme-btn" id="btnTheme" title="เปลี่ยนโหมดสี"></button>
           <button class="btn small" id="btnLogout" title="ออกจากระบบ">ออกจากระบบ</button>
         </div>
       </div>
@@ -888,6 +893,8 @@ function render(){
   app.querySelectorAll('.tab-btn, .bn-btn').forEach(b=>{
     b.addEventListener('click', ()=>{ state.ui.tab = b.dataset.tab; saveState(); render(); });
   });
+  const btnTheme = document.getElementById('btnTheme');
+  if(btnTheme){ paintThemeBtn(btnTheme); btnTheme.onclick = ()=>{ cycleTheme(); paintThemeBtn(btnTheme); }; }
   const btnLogout = document.getElementById('btnLogout');
   if(btnLogout) btnLogout.onclick = logout;
   renderContent();
@@ -913,6 +920,18 @@ function labelTables(root){
       [...tr.children].forEach((td,i)=>{ if(heads[i] && !td.classList.contains('ck')) td.setAttribute('data-label',heads[i]); });
     });
   });
+}
+function themePref(){ try{ const t = localStorage.getItem('spd_theme'); return (t==='light'||t==='dark') ? t : 'auto'; }catch(e){ return 'auto'; } }
+function applyTheme(t){
+  const r = document.documentElement;
+  if(t==='light'||t==='dark') r.setAttribute('data-theme', t); else r.removeAttribute('data-theme');
+  try{ if(t==='auto') localStorage.removeItem('spd_theme'); else localStorage.setItem('spd_theme', t); }catch(e){}
+}
+function cycleTheme(){ const t = themePref(); applyTheme(t==='auto' ? 'light' : t==='light' ? 'dark' : 'auto'); }
+function paintThemeBtn(b){
+  const t = themePref();
+  b.innerHTML = t==='light' ? '☀ <span>สว่าง</span>' : t==='dark' ? '☾ <span>มืด</span>' : '◐ <span>อัตโนมัติ</span>';
+  b.title = 'โหมดสี: '+(t==='light'?'สว่าง':t==='dark'?'มืด':'อัตโนมัติตามเครื่อง')+' (แตะเพื่อเปลี่ยน)';
 }
 function renderContent(){
   const c = document.getElementById('content');
