@@ -645,6 +645,23 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 /* hero % chip: high contrast on lime / red */
 .hero:not(.loss) .chip, .hero:not(.loss) .chip.up, .hero:not(.loss) .chip.down{ background:#0F1115; color:#D6F53C; padding:5px 12px; }
 .hero.loss .chip, .hero.loss .chip.up, .hero.loss .chip.down{ background:rgba(0,0,0,.28); color:#fff; padding:5px 12px; }
+
+/* select pill matching search */
+.cat-select{ -webkit-appearance:none; appearance:none; font:inherit; font-size:13.5px; font-weight:500; color:var(--ink); background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236B7280' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center; border:1px solid var(--line); border-radius:999px; padding:10px 36px 10px 16px; min-height:40px; box-shadow:var(--shadow-sm); cursor:pointer; }
+.cat-select:focus{ outline:none; border-color:var(--teal-light); box-shadow:0 0 0 3px rgba(45,106,242,.18); }
+/* wholesale */
+.ws-toggle{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:12px 16px; margin-bottom:12px; cursor:pointer; color:var(--ink); font:inherit; box-shadow:var(--shadow-sm); }
+.ws-toggle b{ display:block; font-size:14px; }
+.ws-toggle small{ display:block; font-size:12px; color:var(--muted); margin-top:1px; }
+.ws-toggle .ws-box{ flex:0 0 auto; width:26px; height:26px; border-radius:9px; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-weight:800; color:#0F1115; }
+.ws-toggle.on{ background:#0F1115; color:#fff; border-color:#0F1115; }
+.ws-toggle.on small{ color:rgba(255,255,255,.7); }
+.ws-toggle.on .ws-box{ background:var(--lime); border-color:var(--lime); }
+.ws-tag{ display:inline-block; font-size:10.5px; font-weight:700; background:var(--lime); color:#111; border-radius:999px; padding:1px 8px; vertical-align:middle; }
+.ws-seg{ display:inline-flex; background:var(--paper); border-radius:999px; padding:4px; margin-bottom:6px; }
+.ws-seg button{ border:none; background:none; color:var(--muted); font:inherit; font-weight:600; padding:7px 20px; border-radius:999px; cursor:pointer; }
+.ws-seg button.on{ background:#0F1115; color:#fff; }
+.ws-lbl{ display:block; text-align:left; font-size:12.5px; color:var(--muted); font-weight:600; margin:12px 4px 5px; }
 </style>
 </head>
 <body>
@@ -1472,6 +1489,9 @@ function deleteProductConfirm(id){
 function cartArray(mode){ return mode==='sell' ? state.sellCart : state.cart; }
 function setCartArray(mode, arr){ if(mode==='sell') state.sellCart = arr; else state.cart = arr; }
 function materialPrice(m, mode){ return mode==='sell' ? m.sellPrice : m.buyPrice; }
+function isWholesale(){ return isAdmin() && !!state.ui.sellWholesale; }
+function cartPrice(c, m, mode){ return (mode==='sell' && c && c.price!=null && isFinite(c.price)) ? c.price : materialPrice(m, mode); }
+function moneyP(n){ const v = Number(n); return Math.abs(v - Math.round(v*100)/100) < 1e-9 ? money(v) : v.toFixed(3).replace(/0+$/,''); }
 function cartLabel(mode){
   return mode==='sell'
     ? { empty:'ยังไม่มีรายการที่จะขาย', emptyHint:'แตะประเภทของเก่าเพื่อเพิ่ม', totalLbl:'ยอดที่จะได้รับ', title:'รายการขายนี้', partyPlaceholder1:'ชื่อผู้ซื้อ (ถ้ามี)', partyPlaceholder2:'เบอร์โทร (ถ้ามี)', checkoutBtn:'รับเงิน / บันทึกการขาย', clearedMsg:'บันทึกการขายแล้ว' }
@@ -1483,11 +1503,11 @@ function cartItemsHTML(mode){
   if(!cart.length) return `<div class="empty" style="padding:30px 10px;">${ic('cart')}<div style="font-size:13px;">${L.empty}</div><div class="hint">${L.emptyHint}</div></div>`;
   return cart.map(c=>{
     const m = getMaterial(c.materialId); if(!m) return '';
-    const price = materialPrice(m, mode);
+    const price = cartPrice(c, m, mode);
     const overStock = mode==='sell' && c.qty >= m.stock;
     return `
     <div class="cart-row">
-      <div class="ci-name">${esc(m.name)}<div class="p">฿${money(price)} × ${formatQty(c.qty)} ${esc(m.unit)}${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
+      <div class="ci-name">${esc(m.name)}<div class="p">฿${moneyP(price)} × ${formatQty(c.qty)} ${esc(m.unit)}${(mode==='sell'&&c.price!=null)?' <span class="ws-tag">ขายส่ง</span>':''}${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
       <button class="stepper" data-cart-dec="${m.id}" data-cart-mode="${mode}">${ic('minus')}</button>
       <input type="number" class="mono cart-qty-input" data-cart-qty="${m.id}" data-cart-mode="${mode}" value="${formatQty(c.qty)}" min="0.01" step="0.01" inputmode="decimal">
       <button class="stepper" data-cart-inc="${m.id}" data-cart-mode="${mode}" ${overStock?'disabled':''}>${ic('plus')}</button>
@@ -1496,7 +1516,7 @@ function cartItemsHTML(mode){
   }).join('');
 }
 function cartTotalAmount(mode){
-  return cartArray(mode).reduce((a,c)=>{ const m=getMaterial(c.materialId); return a + (m?materialPrice(m,mode)*c.qty:0); },0);
+  return cartArray(mode).reduce((a,c)=>{ const m=getMaterial(c.materialId); return a + (m?cartPrice(c,m,mode)*c.qty:0); },0);
 }
 function cartTotalProfit(mode){
   if(mode==='sell') return 0;
@@ -1525,9 +1545,14 @@ function viewBuySell(mode){
   return `
     <div class="pos-grid">
       <div>
+        ${isSell && isAdmin() ? `
+        <button class="ws-toggle ${isWholesale()?'on':''}" id="wsToggle" type="button">
+          <span class="ws-box">${isWholesale()?'✓':''}</span>
+          <span><b>ขายส่ง (ล็อตใหญ่)</b><small>${isWholesale()?'เปิดอยู่ · แตะสินค้าแล้วใส่น้ำหนักและราคาเองได้ (เป็นตันได้)':'ติ๊กเมื่อขายเป็นตัน/ล็อตใหญ่ ที่ราคาไม่ตรงราคาปลีก'}</small></span>
+        </button>` : ''}
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
           <div class="search-wrap" style="max-width:280px;">${ic('search')}<input id="${isSell?'sellSearch':'posSearch'}" placeholder="ค้นหาประเภทของเก่า" value="${esc(state.ui[qKey]||'')}"></div>
-          <select id="${isSell?'sellCatSel':'posCat'}" class="btn small" style="padding:8px 10px;">
+          <select id="${isSell?'sellCatSel':'posCat'}" class="cat-select">
             ${cats.map(c=>`<option value="${esc(c)}" ${c===state.ui[catKey]?'selected':''}>${esc(c)}</option>`).join('')}
           </select>
         </div>
@@ -1569,8 +1594,11 @@ function viewBuySell(mode){
 function openWeightModal(mode, mid){
   const m = getMaterial(mid); if(!m) return;
   const isSell = mode==='sell';
+  const ws = isSell && isWholesale();
+  const existing = cartArray(mode).find(c=>c.materialId===mid);
+  if(ws) return openWholesaleModal(m, existing);
   const price = materialPrice(m, mode);
-  const inCart = (cartArray(mode).find(c=>c.materialId===mid)||{}).qty || 0;
+  const inCart = (existing||{}).qty || 0;
   const maxQty = isSell ? Number((m.stock - inCart).toFixed(3)) : Infinity;
   if(isSell && maxQty <= 0){ toast('สต๊อกไม่พอ','err'); return; }
   openModal(esc(m.name), `
@@ -1599,6 +1627,65 @@ function openWeightModal(mode, mid){
   document.getElementById('wtCancel').onclick = closeModal;
   inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
   setTimeout(()=>inp.focus(), 60);
+}
+
+/* ขายส่ง (admin only): ใส่น้ำหนัก (กก./ตัน) และราคาเองได้ */
+function openWholesaleModal(m, existing){
+  const canTon = /^(กก|kg)/i.test(String(m.unit).replace(/\./g,''));
+  let u = 'base'; // 'base' | 'ton'
+  const fld = 'width:100%; font-size:24px; font-weight:700; text-align:center; padding:10px 8px; border:2px solid var(--line); border-radius:16px; background:var(--paper); color:var(--ink); box-sizing:border-box;';
+  openModal('ขายส่ง · '+esc(m.name), `
+    <div style="text-align:center;">
+      <div style="color:var(--muted); font-size:13px; margin-bottom:12px;">ราคาปลีก ฿${money(m.sellPrice)}/${esc(m.unit)} · สต๊อกเหลือ ${formatQty(m.stock)} ${esc(m.unit)}</div>
+      ${canTon ? `<div class="ws-seg"><button type="button" data-u="base" class="on">${esc(m.unit)}</button><button type="button" data-u="ton">ตัน</button></div>` : ''}
+      <label class="ws-lbl">น้ำหนัก/จำนวน (<span id="wsU1">${esc(m.unit)}</span>)</label>
+      <input id="wsQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0" style="${fld}">
+      <label class="ws-lbl">ราคาขายส่ง ต่อ <span id="wsU2">${esc(m.unit)}</span> (บาท)</label>
+      <input id="wsPrice" type="number" inputmode="decimal" min="0" step="any" placeholder="0" style="${fld}">
+      <div id="wsTot" style="margin-top:14px; font-size:15px; color:var(--muted);">รวม <b style="font-size:24px; color:var(--ink);">฿0.00</b></div>
+      <div id="wsNote" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
+    </div>`,
+    `<button class="btn" id="wsCancel">ยกเลิก</button><button class="btn primary" id="wsOk" disabled>${existing?'บันทึกการแก้ไข':'เพิ่มลงรายการ'}</button>`);
+  const q = document.getElementById('wsQty'), p = document.getElementById('wsPrice'), ok = document.getElementById('wsOk'), tot = document.getElementById('wsTot'), note = document.getElementById('wsNote');
+  const k = ()=> u==='ton' ? 1000 : 1;
+  const num = el => { const v = parseFloat(el.value); return isFinite(v) && v>0 ? v : 0; };
+  const refresh = ()=>{
+    const qty = num(q)*k(), price = num(p)/k();
+    const over = qty > m.stock;
+    tot.innerHTML = `รวม <b style="font-size:24px; color:var(--ink);">฿${money(qty*price)}</b>${over?' <span style="color:var(--loss);">· สต๊อกไม่พอ</span>':''}`;
+    note.textContent = (u==='ton' && qty) ? `= ${formatQty(qty)} ${m.unit}` : '';
+    ok.disabled = !(qty>0 && price>0 && !over);
+  };
+  if(existing){ q.value = existing.qty; p.value = existing.price!=null ? existing.price : m.sellPrice; } else { p.value = m.sellPrice; }
+  [q,p].forEach(el=>el.addEventListener('input', refresh));
+  document.querySelectorAll('.ws-seg button').forEach(b=> b.onclick = ()=>{
+    const nu = b.dataset.u; if(nu===u) return;
+    const qty = num(q)*k(), price = num(p)/k();
+    u = nu;
+    document.querySelectorAll('.ws-seg button').forEach(x=>x.classList.toggle('on', x.dataset.u===u));
+    const lab = u==='ton' ? 'ตัน' : m.unit;
+    document.getElementById('wsU1').textContent = lab; document.getElementById('wsU2').textContent = lab;
+    if(qty) q.value = Number((qty/k()).toFixed(4));
+    if(price) p.value = Number((price*k()).toFixed(2));
+    refresh();
+  });
+  const submit = ()=>{
+    const qty = Number((num(q)*k()).toFixed(3)), price = Number((num(p)/k()).toFixed(4));
+    if(!(qty>0 && price>0)) return;
+    if(qty>m.stock){ toast('สต๊อกไม่พอ','err'); return; }
+    closeModal(); setWholesaleLine(m.id, qty, price);
+  };
+  ok.onclick = submit;
+  document.getElementById('wsCancel').onclick = closeModal;
+  [q,p].forEach(el=>el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } }));
+  refresh();
+  setTimeout(()=>q.focus(), 60);
+}
+function setWholesaleLine(mid, qty, price){
+  const cart = state.sellCart;
+  const row = cart.find(c=>c.materialId===mid);
+  if(row){ row.qty = qty; row.price = price; } else cart.push({materialId:mid, qty, price});
+  saveState(); renderContent(); refreshCartSheetIfOpen('sell');
 }
 function addToCart(mode, mid, qty){
   qty = qty || 1;
@@ -1767,13 +1854,16 @@ async function sellCheckout(buyerNameArg, buyerPhoneArg){
   const buyerPhone = buyerPhoneArg != null ? buyerPhoneArg : (document.getElementById('buyerPhone') ? document.getElementById('buyerPhone').value.trim() : '');
   const items = state.sellCart.map(c=>{
     const m = getMaterial(c.materialId);
-    const amount = Number((m.sellPrice*c.qty).toFixed(2));
-    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, sellPrice:m.sellPrice, amount };
+    const pr = cartPrice(c, m, 'sell');
+    const amount = Number((pr*c.qty).toFixed(2));
+    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, sellPrice:pr, amount };
   });
   const totalAmount = Number(items.reduce((a,i)=>a+i.amount,0).toFixed(2));
-  const sig = JSON.stringify(items.map(i=>[i.mid,i.qty]));
+  const wholesale = isWholesale() && state.sellCart.some(c=>c.price!=null);
+  const sig = JSON.stringify(items.map(i=>[i.mid,i.qty,i.sellPrice]));
   if(!txIds.sell || txIds.sell.sig!==sig) txIds.sell = { id:uid('sl'), date:new Date().toISOString(), sig };
   const doc = { id:txIds.sell.id, date:txIds.sell.date, buyerName, buyerPhone, items, totalAmount };
+  if(wholesale) doc.wholesale = true;
   txBusy = true;
   const { error } = await sb.rpc('record_sale', { doc });
   txBusy = false;
@@ -1938,7 +2028,7 @@ function viewSaleHistory(){
         <tbody>
           ${list.map(s=>`
             <tr class="receipt-list-row" data-view-sale="${s.id}">
-              <td class="mono">#S${String(s.no).padStart(4,'0')}</td>
+              <td class="mono">#S${String(s.no).padStart(4,'0')}${s.wholesale?' <span class="ws-tag">ขายส่ง</span>':''}</td>
               <td>${fmtDate(s.date)}</td>
               <td>${s.buyerName ? esc(s.buyerName) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="num">${s.items.length}</td>
@@ -2005,7 +2095,7 @@ function saleReceiptHTML(sale){
     <div class="receipt-doc" id="saleDoc-${sale.id}" style="--r-logo-size:${state.shop.logoSize||100}px; --r-logo-offset:${state.shop.logoOffset!=null?state.shop.logoOffset:38}px; --r-shopname-font:${fontCss(state.shop.shopNameFont)}; --r-total-font:${fontCss(state.shop.totalFont)};">
       ${state.shop.logo ? `<div class="r-logo-wrap"><img src="${state.shop.logo}" alt="โลโก้ร้าน"></div>` : ''}
       <div class="r-shop">${esc(state.shop.name||'ร้านรับซื้อของเก่า')}</div>
-      <div class="r-tag">ใบขายของเก่า</div>
+      <div class="r-tag">${sale.wholesale?'ใบขายส่ง':'ใบขายของเก่า'}</div>
       ${state.shop.address ? `<div class="r-meta">${esc(state.shop.address)}</div>` : ''}
       ${state.shop.phone ? `<div class="r-meta">โทร ${esc(state.shop.phone)}</div>` : ''}
       ${state.shop.taxId ? `<div class="r-meta">เลขผู้เสียภาษี ${esc(state.shop.taxId)}</div>` : ''}
@@ -2020,8 +2110,8 @@ function saleReceiptHTML(sale){
         <tbody>
           ${sale.items.map(i=>`
             <tr>
-              <td>${esc(i.name)}<br><span style="color:#777; font-size:10.5px;">฿${money(i.sellPrice)}/${esc(i.unit)}</span></td>
-              <td style="text-align:center;">${formatQty(i.qty)} ${esc(i.unit)}</td>
+              <td>${esc(i.name)}<br><span style="color:#777; font-size:10.5px;">฿${moneyP(i.sellPrice)}/${esc(i.unit)}</span></td>
+              <td style="text-align:center;">${formatQty(i.qty)} ${esc(i.unit)}${(sale.wholesale && /^กก/.test(i.unit) && i.qty>=1000)?`<br><span style="color:#777; font-size:10.5px;">(${formatQty(i.qty/1000)} ตัน)</span>`:''}</td>
               <td style="text-align:right;">฿${money(i.amount)}</td>
             </tr>`).join('')}
         </tbody>
@@ -2384,6 +2474,11 @@ function bindContentEvents(){
   if(sellSearch){
     sellSearch.addEventListener('input', ()=>{ state.ui.sellQ = sellSearch.value; renderContent(); });
   }
+  const wsT = document.getElementById('wsToggle');
+  if(wsT) wsT.onclick = ()=>{
+    if(state.sellCart.length){ toast('ล้างรายการขายก่อน แล้วค่อยสลับโหมด','err'); return; }
+    state.ui.sellWholesale = !state.ui.sellWholesale; saveState(); renderContent();
+  };
   const sellCatSel = document.getElementById('sellCatSel');
   if(sellCatSel) sellCatSel.addEventListener('change', ()=>{ state.ui.sellCat = sellCatSel.value; renderContent(); });
 

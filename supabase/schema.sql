@@ -127,6 +127,8 @@ declare
   cur numeric;
 begin
   if r not in ('admin','staff') then raise exception 'no permission'; end if;
+  -- ขายส่ง (ล็อตใหญ่) ทำได้เฉพาะ admin
+  if coalesce((doc->>'wholesale')::boolean,false) and r <> 'admin' then raise exception 'no permission'; end if;
   lock table public.sales in share row exclusive mode;
   for it in select * from jsonb_array_elements(doc->'items') loop
     select stock into cur from public.materials where id = it->>'mid' for update;
