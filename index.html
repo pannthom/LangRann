@@ -2240,11 +2240,12 @@ async function exportSaleReceiptPDF(sale){
   try{
     const canvas = await renderAnyReceiptCanvas(saleReceiptHTML(sale));
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = state.shop.paperWidth || 80;
-    const pdfHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
+    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
+    const imgHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
+    const pdfHeightMM = imgHeightMM + 25; /* ~2.5 cm blank paper below the signature line */
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
     const imgData = canvas.toDataURL('image/jpeg', 0.9);
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, imgHeightMM, undefined, 'FAST');
     pdf.save(`ใบขาย-S${String(sale.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
@@ -2327,11 +2328,12 @@ async function exportReceiptPDF(purchase){
   try{
     const canvas = await renderReceiptCanvas(purchase);
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = state.shop.paperWidth || 80;
-    const pdfHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
+    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
+    const imgHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
+    const pdfHeightMM = imgHeightMM + 25; /* ~2.5 cm blank paper below the signature line */
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
     const imgData = canvas.toDataURL('image/jpeg', 0.9);
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, imgHeightMM, undefined, 'FAST');
     pdf.save(`ใบรับซื้อ-${String(purchase.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
@@ -2350,7 +2352,7 @@ async function exportSelectedReceiptsPDF(){
   if(btn){ btn.disabled = true; btn.textContent = `กำลังสร้างไฟล์... (0/${purchasesToExport.length})`; }
   try{
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = state.shop.paperWidth || 80;
+    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
     let pdf = null;
     for(let i=0;i<purchasesToExport.length;i++){
       const purchase = purchasesToExport[i];
