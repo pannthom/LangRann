@@ -740,6 +740,11 @@ table.rt td[data-label]::before{ margin-right:auto; }
 .receipt-doc .r-sign{ font-weight:400; }
 .receipt-doc hr{ border-top:1px dashed #000; }
 .receipt-doc .r-sign div{ border-top:1px solid #000; }
+
+/* ยอดรวมในตะกร้า: สีน้ำเงิน ให้เด่น */
+.cart-total .val{ color:#0B4DDB !important; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cart-total .val{ color:#6FA3FF !important; } }
+:root[data-theme="dark"] .cart-total .val{ color:#6FA3FF !important; }
 </style>
 </head>
 <body>
