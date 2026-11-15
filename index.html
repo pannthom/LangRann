@@ -283,9 +283,9 @@
 
 
   /* ---- purchase slip ---- */
-  .receipt-doc{ width:300px; background:#fff; color:#1a1a1a; padding:0 18px 22px; font-family:"IBM Plex Sans Thai",sans-serif; font-size:12.5px; line-height:1.55; }
-  .receipt-doc .r-shop{ font-family:var(--r-shopname-font, "Taviraj","Noto Serif Thai",serif); font-size:17px; font-weight:700; text-align:center; margin-top:var(--r-logo-offset, 38px); }
-  .receipt-doc .r-logo-wrap{ text-align:center; margin-top:var(--r-logo-offset, 38px); margin-bottom:10px; }
+  .receipt-doc{ width:300px; background:#fff; color:#1a1a1a; padding:var(--r-logo-offset, 38px) 18px 22px; font-family:"IBM Plex Sans Thai",sans-serif; font-size:12.5px; line-height:1.55; }
+  .receipt-doc .r-shop{ font-family:var(--r-shopname-font, "Taviraj","Noto Serif Thai",serif); font-size:17px; font-weight:700; text-align:center; margin-top:0; }
+  .receipt-doc .r-logo-wrap{ text-align:center; margin-top:0; margin-bottom:10px; }
   .receipt-doc .r-logo-wrap + .r-shop{ margin-top:0; }
   .receipt-doc .r-logo-wrap img{ max-height:var(--r-logo-size, 100px); max-width:240px; object-fit:contain; }
   .receipt-doc .r-tag{ text-align:center; font-size:11px; color:#777; margin-top:1px; }
@@ -1938,7 +1938,6 @@ async function checkout(sellerNameArg, sellerPhoneArg){
   toast('บันทึกรายการรับซื้อแล้ว');
   if(purchase){
     openReceiptModal(purchase.id);
-    if(state.shop.autoPrint) printReceiptNow(receiptHTML(purchase));
   }
 }
 
@@ -1979,7 +1978,6 @@ async function sellCheckout(buyerNameArg, buyerPhoneArg){
   toast('บันทึกการขายแล้ว รับเงิน ฿'+money(totalAmount));
   if(sale){
     openSaleReceiptModal(sale.id);
-    if(state.shop.autoPrint) printReceiptNow(saleReceiptHTML(sale));
   }
 }
 
@@ -2180,12 +2178,12 @@ function openReceiptModal(purchaseId){
   const purchase = state.purchases.find(p=>p.id===purchaseId); if(!purchase) return;
   openModal(`ใบรับซื้อ #${String(purchase.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${receiptHTML(purchase)}</div>`, `
     <button class="btn ghost" id="mClose">ปิด</button>
-    <button class="btn ghost" id="mPrint">${ic('receipt')} พิมพ์</button>
+    <button class="btn gold" id="mShare">${ic('receipt')} แชร์ / ปริ้น</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportReceiptPDF(purchase);
-  document.getElementById('mPrint').onclick = ()=> printReceiptNow(receiptHTML(purchase));
+  document.getElementById('mShare').onclick = ()=> shareReceiptToPrinter(receiptHTML(purchase),'ใบรับซื้อ-'+String(purchase.no).padStart(4,'0'));
 }
 
 function saleReceiptHTML(sale){
@@ -2222,7 +2220,7 @@ function saleReceiptHTML(sale){
   `;
 }
 
-async function renderAnyReceiptCanvas(html){
+async function renderAnyReceiptCanvas(html, outWidthPx){
   if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
   const wrapper = document.createElement('div');
   wrapper.style.position = 'fixed';
@@ -2231,7 +2229,7 @@ async function renderAnyReceiptCanvas(html){
   wrapper.innerHTML = html;
   document.body.appendChild(wrapper);
   const node = wrapper.firstElementChild;
-  const canvas = await html2canvas(node, { scale: 2.5, backgroundColor: '#ffffff' });
+  const canvas = await html2canvas(node, { scale: outWidthPx ? outWidthPx/node.offsetWidth : 2.5, backgroundColor: '#ffffff' });
   document.body.removeChild(wrapper);
   return canvas;
 }
@@ -2261,18 +2259,43 @@ function openSaleReceiptModal(saleId){
   const sale = state.sales.find(s=>s.id===saleId); if(!sale) return;
   openModal(`ใบขาย #S${String(sale.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${saleReceiptHTML(sale)}</div>`, `
     <button class="btn ghost" id="mClose">ปิด</button>
-    <button class="btn ghost" id="mPrint">${ic('receipt')} พิมพ์</button>
+    <button class="btn gold" id="mShare">${ic('receipt')} แชร์ / ปริ้น</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportSaleReceiptPDF(sale);
-  document.getElementById('mPrint').onclick = ()=> printReceiptNow(saleReceiptHTML(sale));
+  document.getElementById('mShare').onclick = ()=> shareReceiptToPrinter(saleReceiptHTML(sale),'ใบขาย-S'+String(sale.no).padStart(4,'0'));
 }
 
 /* Print via the browser's normal print pipeline (works with any printer registered
    as a system/OS printer — including cheap Bluetooth thermal printers that ship
    with their own print-service app). */
-async function printReceiptNow(html){
+/* Send receipt as an 80mm-wide PNG through the phone's share sheet so the user can pick
+   the Deli Label app (or any print app) in one tap. Falls back to downloading the image. */
+async function shareReceiptToPrinter(html, name){
+  try{
+    toast('กำลังเตรียมไฟล์...');
+    const canvas = await renderAnyReceiptCanvas(html);
+    const { jsPDF } = window.jspdf;
+    const wmm = state.shop.paperWidth || 80;
+    const hmm = Math.max(120, wmm * canvas.height / canvas.width); /* same as the original PDF download */
+    const pdf = new jsPDF({ unit:'mm', format:[wmm, hmm] });
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.9), 'JPEG', 0, 0, wmm, hmm, undefined, 'FAST');
+    const blob = pdf.output('blob');
+    const file = new File([blob], (name||'receipt')+'.pdf', {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name||'ใบเสร็จ'});
+    }else{
+      pdf.save(file.name);
+    }
+  }catch(e){ if(e&&e.name==='AbortError') return; console.error(e); toast('สร้างไฟล์ไม่สำเร็จ','err'); }
+}
+
+const IS_MOBILE_OS = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+async function printReceiptNow(html, fromButton){
+  /* iOS/Android ignore @page size (always A4), so on phones/tablets send an 80mm image
+     through the share sheet instead. Needs a tap, so skip the auto-print after saving. */
+  return shareReceiptToPrinter(html,'ใบเสร็จ');
   if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
   let area = document.getElementById('printArea');
   if(!area){ area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
@@ -2414,19 +2437,24 @@ function viewSettings(){
     <div class="panel" style="max-width:640px; margin-top:18px;">
       <div class="panel-head"><h2>เครื่องพิมพ์ใบเสร็จ</h2></div>
       <div class="modal-body">
-        <label class="printer-toggle">
-          <input type="checkbox" id="sAutoPrint" ${s.autoPrint?'checked':''}>
-          <span>พิมพ์ใบเสร็จอัตโนมัติทันทีที่บันทึกรายการ (รับซื้อ/ขาย)</span>
-        </label>
         <div class="field" style="max-width:260px; margin-top:14px;">
           <label>ขนาดกระดาษ</label>
           <select id="sPaperWidth">
+            <option value="57" ${s.paperWidth==57?'selected':''}>57 มม. (Deli E760DW)</option>
             <option value="58" ${s.paperWidth==58?'selected':''}>58 มม. (เครื่องพิมพ์พกพาราคาประหยัด)</option>
             <option value="80" ${s.paperWidth==80?'selected':''}>80 มม. (เครื่องพิมพ์ใบเสร็จมาตรฐาน)</option>
           </select>
         </div>
         <div class="printer-hint">
-          <div class="printer-hint-title">วิธีต่อเครื่องพิมพ์บลูทูธราคาประหยัด</div>
+          <div class="printer-hint-title">Deli E760DW: มือถือ/ไอแพด (ผ่านแอป Deli Label)</div>
+          <ol>
+            <li>เปิดใบเสร็จ กดปุ่ม <b>“ส่งไปปริ้น”</b> → เลือกแอป <b>Deli Label</b> จากหน้าแชร์ → กดพิมพ์ในแอป (ครั้งแรกตั้งขนาดกระดาษ 80 มม. แล้วแอปจะจำไว้)</li>
+            <li>ถ้าไม่เห็น Deli Label ในหน้าแชร์ ระบบจะบันทึกรูปให้ ไปเลือกรูปในแอป Deli Label แทน</li>
+            <li><b>คอม Windows:</b> ติดตั้งไดรเวอร์ Deli แล้วตั้งเป็นเครื่องพิมพ์เริ่มต้น เปิด Chrome ด้วยทางลัดที่เติม <code>--kiosk-printing</code> ท้ายคำสั่ง จะกดพิมพ์แล้วออกทันทีโดยไม่ถามอีก</li>
+          </ol>
+        </div>
+        <div class="printer-hint" style="margin-top:10px;">
+          <div class="printer-hint-title">วิธีต่อเครื่องพิมพ์บลูทูธราคาประหยัด (ทั่วไป)</div>
           <ol>
             <li>จับคู่ (Pair) เครื่องพิมพ์กับมือถือ/คอมพิวเตอร์ผ่านเมนู Bluetooth ของเครื่องตามปกติ</li>
             <li>ถ้าเครื่องพิมพ์ไม่ขึ้นเป็นเครื่องพิมพ์ในระบบเอง (มักเป็นกับ Android) ให้ติดตั้งแอปช่วยพิมพ์ เช่น <b>RawBT</b> จาก Play Store แล้วตั้งเป็นเครื่องพิมพ์เริ่มต้น — แอปเหล่านี้จะทำให้เครื่องพิมพ์ตัวเล็กปรากฏเป็นตัวเลือกเครื่องพิมพ์ในหน้าต่างพิมพ์ของเบราว์เซอร์ได้</li>
@@ -2784,7 +2812,6 @@ function bindContentEvents(){
   const sAutoPrint = document.getElementById('sAutoPrint');
   if(sAutoPrint){
     sAutoPrint.addEventListener('change', ()=>{
-      state.shop.autoPrint = sAutoPrint.checked;
       saveState();
       toast(sAutoPrint.checked ? 'เปิดพิมพ์ใบเสร็จอัตโนมัติแล้ว' : 'ปิดพิมพ์ใบเสร็จอัตโนมัติแล้ว');
     });
@@ -2799,7 +2826,7 @@ function bindContentEvents(){
   }
   const btnTestPrint = document.getElementById('btnTestPrint');
   if(btnTestPrint){
-    btnTestPrint.onclick = ()=> printReceiptNow(receiptHTML(sampleReceiptForPreview()));
+    btnTestPrint.onclick = ()=> printReceiptNow(receiptHTML(sampleReceiptForPreview()), true);
   }
   const fLogo = document.getElementById('fLogo');
   if(fLogo){
