@@ -2276,17 +2276,13 @@ async function shareReceiptToPrinter(html, name){
   try{
     toast('กำลังเตรียมไฟล์...');
     const canvas = await renderAnyReceiptCanvas(html);
-    const { jsPDF } = window.jspdf;
-    const wmm = state.shop.paperWidth || 80;
-    const hmm = Math.max(120, wmm * canvas.height / canvas.width); /* same as the original PDF download */
-    const pdf = new jsPDF({ unit:'mm', format:[wmm, hmm] });
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.9), 'JPEG', 0, 0, wmm, hmm, undefined, 'FAST');
-    const blob = pdf.output('blob');
-    const file = new File([blob], (name||'receipt')+'.pdf', {type:'application/pdf'});
+    /* Deli Label only shows up in the iOS share sheet for images (not PDFs) */
+    const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
+    const file = new File([blob], (name||'receipt')+'.png', {type:'image/png'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:name||'ใบเสร็จ'});
     }else{
-      pdf.save(file.name);
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=file.name; a.click();
     }
   }catch(e){ if(e&&e.name==='AbortError') return; console.error(e); toast('สร้างไฟล์ไม่สำเร็จ','err'); }
 }
