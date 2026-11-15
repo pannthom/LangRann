@@ -723,6 +723,23 @@ html{ -webkit-text-size-adjust:100%; touch-action:manipulation; }
 }
 
 table.rt td[data-label]::before{ margin-right:auto; }
+
+/* ---- ใบเสร็จ: ตัวอักษรดำล้วนทั้งใบ ต่างกันที่น้ำหนักตัวอักษรเท่านั้น ---- */
+.receipt-doc, .receipt-doc *{ color:#000 !important; opacity:1 !important; }
+.receipt-doc{ font-weight:400; }
+.receipt-doc .r-shop{ font-weight:800; }
+.receipt-doc .r-tag{ font-weight:600; }
+.receipt-doc .r-meta{ font-weight:400; }
+.receipt-doc .r-info{ font-weight:400; }
+.receipt-doc .r-info span:last-child{ font-weight:600; }
+.receipt-doc thead th{ font-weight:700; border-bottom:1.5px solid #000; }
+.receipt-doc tbody td{ font-weight:600; }
+.receipt-doc tbody td span{ font-weight:400; }
+.receipt-doc .r-total-row{ font-weight:800; }
+.receipt-doc .r-note{ font-weight:500; }
+.receipt-doc .r-sign{ font-weight:400; }
+.receipt-doc hr{ border-top:1px dashed #000; }
+.receipt-doc .r-sign div{ border-top:1px solid #000; }
 </style>
 </head>
 <body>
