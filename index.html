@@ -1724,7 +1724,9 @@ function openWeightModal(mode, mid){
   ok.onclick = submit;
   document.getElementById('wtCancel').onclick = closeModal;
   inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
-  setTimeout(()=>inp.focus(), 60);
+  /* iOS only opens the keyboard when focus() runs inside the tap itself, so focus right now (not only after a delay) */
+  try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); }
+  setTimeout(()=>{ if(document.activeElement!==inp) inp.focus(); }, 80);
 }
 
 /* ขายส่ง (admin only): ใส่น้ำหนัก (กก./ตัน) และราคาเองได้ */
@@ -1777,7 +1779,8 @@ function openWholesaleModal(m, existing){
   document.getElementById('wsCancel').onclick = closeModal;
   [q,p].forEach(el=>el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submit(); } }));
   refresh();
-  setTimeout(()=>q.focus(), 60);
+  try{ q.focus({preventScroll:true}); }catch(e){ q.focus(); }
+  setTimeout(()=>{ if(document.activeElement!==q) q.focus(); }, 80);
 }
 function setWholesaleLine(mid, qty, price){
   const cart = state.sellCart;
