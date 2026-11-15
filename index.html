@@ -2178,12 +2178,12 @@ function openReceiptModal(purchaseId){
   const purchase = state.purchases.find(p=>p.id===purchaseId); if(!purchase) return;
   openModal(`ใบรับซื้อ #${String(purchase.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${receiptHTML(purchase)}</div>`, `
     <button class="btn ghost" id="mClose">ปิด</button>
-    <button class="btn gold" id="mShare">${ic('receipt')} แชร์ / ปริ้น</button>
+    <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportReceiptPDF(purchase);
-  document.getElementById('mShare').onclick = ()=> shareReceiptToPrinter(receiptHTML(purchase),'ใบรับซื้อ-'+String(purchase.no).padStart(4,'0'));
+  document.getElementById('mShare').onclick = ()=> exportReceiptPDF(purchase);
 }
 
 function saleReceiptHTML(sale){
@@ -2259,12 +2259,12 @@ function openSaleReceiptModal(saleId){
   const sale = state.sales.find(s=>s.id===saleId); if(!sale) return;
   openModal(`ใบขาย #S${String(sale.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${saleReceiptHTML(sale)}</div>`, `
     <button class="btn ghost" id="mClose">ปิด</button>
-    <button class="btn gold" id="mShare">${ic('receipt')} แชร์ / ปริ้น</button>
+    <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportSaleReceiptPDF(sale);
-  document.getElementById('mShare').onclick = ()=> shareReceiptToPrinter(saleReceiptHTML(sale),'ใบขาย-S'+String(sale.no).padStart(4,'0'));
+  document.getElementById('mShare').onclick = ()=> exportSaleReceiptPDF(sale);
 }
 
 /* Print via the browser's normal print pipeline (works with any printer registered
