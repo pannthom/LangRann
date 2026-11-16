@@ -2899,17 +2899,25 @@ function bindContentEvents(){
       saveState(); toast('รีเซ็ตเลย์เอาท์แล้ว'); renderContent();
     };
   }
+  const applyShopFields = ()=>{
+    state.shop.name = document.getElementById('sName').value.trim() || 'ร้านรับซื้อของเก่า';
+    state.shop.address = document.getElementById('sAddress').value.trim();
+    state.shop.phone = document.getElementById('sPhone').value.trim();
+    state.shop.taxId = document.getElementById('sTaxId').value.trim();
+    state.shop.note = document.getElementById('sNote').value.trim();
+    const high = parseFloat(document.getElementById('sHighStock').value);
+    state.shop.highStockAlert = isNaN(high) ? 150 : high;
+    saveState();
+  };
+  /* save as soon as a field is finished (not only via the button) so edits are never lost */
+  ['sName','sAddress','sPhone','sTaxId','sNote','sHighStock'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', ()=>{ applyShopFields(); toast('บันทึกแล้ว'); });
+  });
   const saveSettingsBtn = document.getElementById('btnSaveSettings');
   if(saveSettingsBtn){
     saveSettingsBtn.onclick = ()=>{
-      state.shop.name = document.getElementById('sName').value.trim() || 'ร้านรับซื้อของเก่า';
-      state.shop.address = document.getElementById('sAddress').value.trim();
-      state.shop.phone = document.getElementById('sPhone').value.trim();
-      state.shop.taxId = document.getElementById('sTaxId').value.trim();
-      state.shop.note = document.getElementById('sNote').value.trim();
-      const high = parseFloat(document.getElementById('sHighStock').value);
-      state.shop.highStockAlert = isNaN(high) ? 150 : high;
-      saveState();
+      applyShopFields();
       toast('บันทึกการตั้งค่าแล้ว');
       render();
     };
