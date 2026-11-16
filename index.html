@@ -238,6 +238,8 @@
   .p-thumb{ width:100%; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:linear-gradient(135deg,var(--tealsoft),var(--paper)); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted); margin-bottom:11px; }
   .p-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
   .p-thumb svg{ width:28px; height:28px; opacity:0.4; }
+  /* phones: always 2 columns (some Android screens fell back to 1 huge column) */
+  @media (max-width:760px){ .product-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .p-card{ padding:10px; } }
   .p-card .cat{ display:inline-block; font-size:10.5px; color:var(--teal-light); background:var(--tealsoft); padding:2px 9px; border-radius:999px; margin-bottom:7px; }
   .p-card .nm{ font-size:14px; font-weight:600; margin-bottom:8px; min-height:36px; line-height:1.3; color:var(--ink); }
   .p-card .pr{ font-family:var(--font-display); font-size:18px; color:var(--gold); font-weight:600; letter-spacing:-0.01em; }
