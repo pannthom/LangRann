@@ -279,17 +279,14 @@
   .modal-head h3{ font-size:17px; }
   .modal-body{ padding:20px 22px; }
   .modal-foot{ padding:14px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; }
-  /* weight dialog: very compact so it stays short with the keyboard open */
-  .modal:has(#wtInput){ border-radius:18px; }
-  .modal:has(#wtInput) .modal-head{ padding:6px 14px; border-bottom:none; }
-  .modal:has(#wtInput) .modal-head h3{ font-size:15px; }
-  .modal:has(#wtInput) .modal-body{ padding:0 14px 4px; }
-  .modal:has(#wtInput) .modal-foot{ padding:6px 12px 10px; border-top:none; }
-  .modal:has(#wtInput) .modal-foot .btn{ padding:7px 16px; font-size:13px; }
-  .modal:has(#wtInput) #wtInput{ font-size:22px !important; padding:3px 6px !important; width:120px !important; border-radius:12px !important; border-width:1.5px !important; }
-  .modal:has(#wtInput) #wtTotal{ margin-top:4px !important; font-size:12px !important; }
-  .modal:has(#wtInput) #wtTotal b{ font-size:16px !important; }
-  .modal:has(#wtInput) .modal-body > div > div:first-child{ margin-bottom:4px !important; font-size:12px !important; }
+  /* weight dialog: a bit compact, centred in the visible area above the keyboard */
+  .modal:has(#wtInput) .modal-head{ padding:10px 18px; }
+  .modal:has(#wtInput) .modal-body{ padding:10px 18px 8px; }
+  .modal:has(#wtInput) .modal-foot{ padding:8px 14px; }
+  .modal:has(#wtInput) #wtInput{ font-size:26px !important; padding:6px 8px !important; width:150px !important; border-radius:14px !important; }
+  .modal:has(#wtInput) #wtTotal{ margin-top:8px !important; font-size:13px !important; }
+  .modal:has(#wtInput) #wtTotal b{ font-size:18px !important; }
+  .modal:has(#wtInput) .modal-body > div > div:first-child{ margin-bottom:6px !important; }
   .x-btn{ background:none; border:none; cursor:pointer; color:var(--muted); padding:6px; border-radius:9px; display:inline-flex; transition:background .15s ease, color .15s ease; }
   .x-btn:hover{ background:var(--hover); color:var(--ink); }
   .x-btn svg{ width:18px; height:18px; }
@@ -2696,6 +2693,7 @@ function openModal(title, bodyHTML, footHTML, variant){
       overlay.style.height = kb ? vv.height+'px' : '';
       overlay.style.top = kb ? vv.offsetTop+'px' : '';
       overlay.style.bottom = kb ? 'auto' : '';
+      overlay.style.alignItems = kb ? 'center' : '';   /* middle of the space above the keyboard */
       overlay.style.paddingTop = kb ? '8px' : '';
       overlay.style.paddingBottom = kb ? '8px' : '';
       if(kb){ const f = document.activeElement; if(f && overlay.contains(f)) setTimeout(()=>{ const b = overlay.querySelector('.modal-foot'); if(b) b.scrollIntoView({block:'nearest'}); }, 30); }
