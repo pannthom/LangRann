@@ -241,7 +241,7 @@
   /* phones: always 2 columns (some Android screens fell back to 1 huge column) */
   @media (max-width:760px){ .product-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .p-card{ padding:10px; } }
   /* tablets/phones: smaller cards, shorter thumbnails so more products fit on screen */
-  @media (max-width:1200px){ .product-grid{ grid-template-columns:repeat(auto-fill,minmax(138px,1fr)); gap:10px; } .p-card{ padding:10px; } .p-thumb{ aspect-ratio:auto; height:84px; margin-bottom:8px; } }
+  @media (max-width:1200px){ .product-grid{ grid-template-columns:repeat(auto-fill,minmax(138px,1fr)); gap:10px; } .p-card{ padding:10px; } .p-thumb{ aspect-ratio:auto; height:56px; margin-bottom:6px; } .p-card .nm{ min-height:0; margin-bottom:4px; font-size:13px; } .p-card .cat{ margin-bottom:4px; } .p-card .pr{ font-size:16px; } .p-card .st{ margin-top:2px; } }
   @media (max-width:420px){ .product-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .p-card .cat{ display:inline-block; font-size:10.5px; color:var(--teal-light); background:var(--tealsoft); padding:2px 9px; border-radius:999px; margin-bottom:7px; }
   .p-card .nm{ font-size:14px; font-weight:600; margin-bottom:8px; min-height:36px; line-height:1.3; color:var(--ink); }
