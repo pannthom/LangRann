@@ -279,6 +279,14 @@
   .modal-head h3{ font-size:17px; }
   .modal-body{ padding:20px 22px; }
   .modal-foot{ padding:14px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; }
+  /* weight dialog: compact so it stays short with the keyboard open */
+  .modal:has(#wtInput) .modal-head{ padding:10px 18px; }
+  .modal:has(#wtInput) .modal-body{ padding:10px 18px 8px; }
+  .modal:has(#wtInput) .modal-foot{ padding:8px 14px; }
+  .modal:has(#wtInput) #wtInput{ font-size:26px !important; padding:6px 8px !important; width:150px !important; border-radius:14px !important; }
+  .modal:has(#wtInput) #wtTotal{ margin-top:8px !important; font-size:13px !important; }
+  .modal:has(#wtInput) #wtTotal b{ font-size:18px !important; }
+  .modal:has(#wtInput) .modal-body > div > div:first-child{ margin-bottom:6px !important; }
   .x-btn{ background:none; border:none; cursor:pointer; color:var(--muted); padding:6px; border-radius:9px; display:inline-flex; transition:background .15s ease, color .15s ease; }
   .x-btn:hover{ background:var(--hover); color:var(--ink); }
   .x-btn svg{ width:18px; height:18px; }
