@@ -2673,6 +2673,21 @@ function openModal(title, bodyHTML, footHTML, variant){
   document.getElementById('modalX').onclick = closeModal;
   overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(); });
   document.addEventListener('keydown', escHandler);
+  /* on-screen keyboard (tablets/phones): shrink the overlay to the visible area, sit the dialog at the top, so buttons stay reachable */
+  const vv = window.visualViewport;
+  if(vv){
+    const fit = ()=>{
+      if(!document.body.contains(overlay)){ vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); return; }
+      const kb = vv.height < window.innerHeight - 120;
+      overlay.style.height = kb ? vv.height+'px' : '';
+      overlay.style.top = kb ? vv.offsetTop+'px' : '';
+      overlay.style.bottom = kb ? 'auto' : '';
+      overlay.style.paddingTop = kb ? '8px' : '';
+      overlay.style.paddingBottom = kb ? '8px' : '';
+      if(kb){ const f = document.activeElement; if(f && overlay.contains(f)) setTimeout(()=>{ const b = overlay.querySelector('.modal-foot'); if(b) b.scrollIntoView({block:'nearest'}); }, 30); }
+    };
+    vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
+  }
 }
 function escHandler(e){ if(e.key==='Escape') closeModal(); }
 function closeModal(){
