@@ -2199,7 +2199,7 @@ function openReceiptModal(purchaseId){
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportReceiptPDF(purchase);
-  document.getElementById('mShare').onclick = ()=> exportReceiptPDF(purchase);
+  document.getElementById('mShare').onclick = ()=>{ window.__shareNext = true; exportReceiptPDF(purchase); };
 }
 
 function saleReceiptHTML(sale){
@@ -2236,6 +2236,20 @@ function saleReceiptHTML(sale){
   `;
 }
 
+/* Android + 'ปริ้น' button: open the share sheet straight away (pick OpenLabel / print app; Android moves apps you use often to the top).
+   iPhone/desktop: normal PDF download. */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+async function deliverPdf(pdf, filename){
+  const wantShare = window.__shareNext; window.__shareNext = false;
+  if(wantShare && IS_ANDROID && navigator.canShare){
+    try{
+      const file = new File([pdf.output('blob')], filename, {type:'application/pdf'});
+      if(navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:filename}); return; }
+    }catch(e){ if(e && e.name==='AbortError') return; console.error(e); }
+  }
+  pdf.save(filename);
+}
+
 async function renderAnyReceiptCanvas(html, outWidthPx){
   if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
   const wrapper = document.createElement('div');
@@ -2262,7 +2276,7 @@ async function exportSaleReceiptPDF(sale){
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
     const imgData = canvas.toDataURL('image/jpeg', 0.9);
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, imgHeightMM, undefined, 'FAST');
-    pdf.save(`ใบขาย-S${String(sale.no).padStart(4,'0')}.pdf`);
+    await deliverPdf(pdf, `ใบขาย-S${String(sale.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
     console.error(e);
@@ -2281,7 +2295,7 @@ function openSaleReceiptModal(saleId){
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mPdf').onclick = ()=> exportSaleReceiptPDF(sale);
-  document.getElementById('mShare').onclick = ()=> exportSaleReceiptPDF(sale);
+  document.getElementById('mShare').onclick = ()=>{ window.__shareNext = true; exportSaleReceiptPDF(sale); };
 }
 
 /* Print via the browser's normal print pipeline (works with any printer registered
@@ -2350,7 +2364,7 @@ async function exportReceiptPDF(purchase){
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
     const imgData = canvas.toDataURL('image/jpeg', 0.9);
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMM, imgHeightMM, undefined, 'FAST');
-    pdf.save(`ใบรับซื้อ-${String(purchase.no).padStart(4,'0')}.pdf`);
+    await deliverPdf(pdf, `ใบรับซื้อ-${String(purchase.no).padStart(4,'0')}.pdf`);
     toast('ดาวน์โหลด PDF แล้ว');
   }catch(e){
     console.error(e);
