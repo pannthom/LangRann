@@ -252,7 +252,7 @@
   .cart-panel{ background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow-md); position:sticky; top:96px; max-height:calc(100vh - 116px); display:flex; flex-direction:column; overflow:hidden; }
   .cart-summary-bar{ display:none; }
   .cart-head{ padding:16px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:linear-gradient(180deg,var(--tealsoft),transparent); }
-  .seller-fields{ padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:8px; }
+  .seller-fields{ padding:12px 16px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px; }
   .seller-fields input{ flex:1 1 0; min-width:0; padding:8px 11px; border:1px solid var(--line); border-radius:9px; background:var(--paper); color:var(--ink); font-size:12.5px; }
   .seller-fields input:focus{ outline:none; border-color:var(--teal-light); box-shadow:0 0 0 3px rgba(23,105,95,0.18); background:var(--surface); }
   .cart-items{ overflow-y:auto; flex:1 1 auto; padding:6px 14px; }
@@ -1685,6 +1685,7 @@ function viewBuySell(mode){
         <div class="seller-fields">
           <input id="${isSell?'buyerName':'sellerName'}" placeholder="${L.partyPlaceholder1}">
           <input id="${isSell?'buyerPhone':'sellerPhone'}" placeholder="${L.partyPlaceholder2}">
+          ${isSell?'':`<input id="sellerIdCard" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;">`}
         </div>
         <div class="cart-items">${cartItemsHTML(mode)}</div>
         <div class="cart-foot">
@@ -1870,10 +1871,12 @@ function cartSheetBodyHTML(mode){
   const L = cartLabel(mode);
   const nameEl = document.getElementById(isSell?'buyerName':'sellerName');
   const phoneEl = document.getElementById(isSell?'buyerPhone':'sellerPhone');
+  const idEl = document.getElementById('sellerIdCard');
   return `
     <div class="seller-fields" style="border:1px solid var(--line); border-radius:6px; margin-bottom:10px;">
       <input id="sheetPartyName" placeholder="${L.partyPlaceholder1}" value="${esc(nameEl?nameEl.value:'')}">
       <input id="sheetPartyPhone" placeholder="${L.partyPlaceholder2}" value="${esc(phoneEl?phoneEl.value:'')}">
+      ${isSell?'':`<input id="sheetPartyId" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;" value="${esc(idEl?idEl.value:'')}">`}
     </div>
     ${cartArray(mode).length ? `<div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button class="btn ghost small" id="sheetClear">ล้างรายการ</button></div>` : ''}
     <div class="cart-items" style="padding:0;">${cartItemsHTML(mode)}</div>
@@ -1899,9 +1902,12 @@ function bindCartSheetOverlay(mode, overlay){
     const phone = overlay.querySelector('#sheetPartyPhone');
     const partyName = name ? name.value.trim() : '';
     const partyPhone = phone ? phone.value.trim() : '';
+    const idf = overlay.querySelector('#sheetPartyId');
+    const partyId = idf ? idf.value : '';
+    if(mode!=='sell' && !validIdCard(partyId)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
     closeModal();
     if(mode==='sell') sellCheckout(partyName, partyPhone);
-    else checkout(partyName, partyPhone);
+    else checkout(partyName, partyPhone, partyId);
   };
 }
 function refreshCartSheetIfOpen(mode){
@@ -1912,6 +1918,8 @@ function refreshCartSheetIfOpen(mode){
   const footEl = overlay.querySelector('.modal-foot');
   const prevName = overlay.querySelector('#sheetPartyName');
   const prevPhone = overlay.querySelector('#sheetPartyPhone');
+  const prevId = overlay.querySelector('#sheetPartyId');
+  const keepId = prevId ? prevId.value : '';
   const keepName = prevName ? prevName.value : '';
   const keepPhone = prevPhone ? prevPhone.value : '';
   if(bodyEl) bodyEl.innerHTML = cartSheetBodyHTML(mode);
@@ -1920,13 +1928,23 @@ function refreshCartSheetIfOpen(mode){
   const newPhone = overlay.querySelector('#sheetPartyPhone');
   if(newName) newName.value = keepName;
   if(newPhone) newPhone.value = keepPhone;
+  const newId = overlay.querySelector('#sheetPartyId');
+  if(newId) newId.value = keepId;
   bindCartSheetOverlay(mode, overlay);
 }
 
 function lastOf(list, id){ return list.find(x=>x.id===id); }
 
-async function checkout(sellerNameArg, sellerPhoneArg){
+/* Thai national ID: empty is allowed; otherwise 13 digits (spaces/dashes ignored) */
+function idDigits(v){ return String(v||'').replace(/\D/g,''); }
+function validIdCard(v){ const d = idDigits(v); return d==='' || d.length===13; }
+function fmtIdCard(v){ const d = idDigits(v); return d.length===13 ? `${d[0]}-${d.slice(1,5)}-${d.slice(5,10)}-${d.slice(10,12)}-${d[12]}` : String(v||''); }
+
+async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg){
   if(!state.cart.length || txBusy) return;
+  const sellerIdRaw = sellerIdArg != null ? sellerIdArg : (document.getElementById('sellerIdCard') ? document.getElementById('sellerIdCard').value : '');
+  if(!validIdCard(sellerIdRaw)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
+  const sellerIdCard = idDigits(sellerIdRaw);
   const sellerName = sellerNameArg != null ? sellerNameArg : (document.getElementById('sellerName') ? document.getElementById('sellerName').value.trim() : '');
   const sellerPhone = sellerPhoneArg != null ? sellerPhoneArg : (document.getElementById('sellerPhone') ? document.getElementById('sellerPhone').value.trim() : '');
   const items = state.cart.map(c=>{
@@ -1940,7 +1958,7 @@ async function checkout(sellerNameArg, sellerPhoneArg){
   // id คงเดิมตลอดการลองซ้ำ ถ้าเน็ตหลุดหลังบันทึกไปแล้ว กดอีกครั้งจะไม่เกิดใบซ้ำ
   const sig = JSON.stringify(items.map(i=>[i.mid,i.qty]));
   if(!txIds.buy || txIds.buy.sig!==sig) txIds.buy = { id:uid('pu'), date:new Date().toISOString(), sig };
-  const doc = { id:txIds.buy.id, date:txIds.buy.date, sellerName, sellerPhone, items, totalCost, totalProfit };
+  const doc = { id:txIds.buy.id, date:txIds.buy.date, sellerName, sellerPhone, sellerIdCard, items, totalCost, totalProfit };
   txBusy = true;
   const { error } = await sb.rpc('record_purchase', { doc });
   txBusy = false;
@@ -2170,6 +2188,7 @@ function receiptHTML(purchase){
       <div class="r-info"><span>วันที่</span><span>${fmtDate(purchase.date)}</span></div>
       ${purchase.sellerName ? `<div class="r-info"><span>ผู้ขาย</span><span>${esc(purchase.sellerName)}</span></div>` : ''}
       ${purchase.sellerPhone ? `<div class="r-info"><span>เบอร์โทร</span><span>${esc(purchase.sellerPhone)}</span></div>` : ''}
+      ${purchase.sellerIdCard ? `<div class="r-info"><span>เลขบัตร ปชช.</span><span>${esc(fmtIdCard(purchase.sellerIdCard))}</span></div>` : ''}
       <hr>
       <table>
         <thead><tr><th style="text-align:left;">ประเภทของเก่า</th><th style="text-align:center;">น้ำหนัก/จำนวน</th><th style="text-align:right;">จำนวนเงิน</th></tr></thead>
@@ -2675,7 +2694,7 @@ function sampleReceiptForPreview(){
   const m = state.materials[0];
   return {
     id:'preview', no: state.nextReceiptNo, date: new Date().toISOString(),
-    sellerName:'ตัวอย่างผู้ขาย', sellerPhone:'08x-xxx-xxxx',
+    sellerName:'ตัวอย่างผู้ขาย', sellerPhone:'08x-xxx-xxxx', sellerIdCard:'1234567890123',
     items: m ? [{ name:m.name, sku:m.sku, unit:m.unit, qty:5, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost:m.buyPrice*5 }] : [],
     totalCost: m ? m.buyPrice*5 : 0
   };
