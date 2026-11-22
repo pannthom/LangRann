@@ -413,6 +413,10 @@
       padding:6px; box-shadow:var(--shadow-md);
     }
     .bn-btn{ display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; color:var(--muted); font-size:9.5px; font-weight:500; padding:7px 2px; border-radius:18px; flex:1 1 0; min-width:0; cursor:pointer; transition:background .18s ease, color .18s ease; }
+    .tab-btn, .bn-btn{ position:relative; }
+    .nav-badge{ position:absolute; top:3px; right:calc(50% - 22px); min-width:19px; height:19px; padding:0 5px; border-radius:10px; background:#ef4444; color:#fff; font-size:11px; font-weight:700; line-height:19px; text-align:center; box-shadow:0 0 0 2px var(--surface,#fff); animation:navPulse 1.4s ease-in-out infinite; pointer-events:none; }
+    .tab-btn .nav-badge{ top:50%; right:12px; transform:translateY(-50%); }
+    @keyframes navPulse{ 0%,100%{ box-shadow:0 0 0 2px var(--surface,#fff), 0 0 0 0 rgba(239,68,68,0.55); } 50%{ box-shadow:0 0 0 2px var(--surface,#fff), 0 0 0 7px rgba(239,68,68,0); } }
     .bn-btn span{ display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .bn-btn svg{ width:21px; height:21px; }
     .bn-btn.active{ color:var(--teal); background:var(--tealsoft); font-weight:600; }
@@ -877,6 +881,7 @@ function loadLocalUi(){
 function saveState(){
   try{ localStorage.setItem(localKey(), JSON.stringify({ cart:state.cart, sellCart:state.sellCart, ui:state.ui })); }
   catch(e){ console.error('save error', e); }
+  updateNavBadges();
   scheduleSync();   // admin: ส่งการแก้ไขขึ้นเซิร์ฟเวอร์ (พนักงานไม่มีสิทธิ์ จึงไม่ส่ง)
 }
 function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -924,6 +929,21 @@ const TABS = [
 const STAFF_TABS = ['pos','sell','receipts'];
 function allowedTabs(){ return isAdmin() ? TABS : TABS.filter(t=>STAFF_TABS.includes(t.id)); }
 
+/* red pulsing badge on the buy/sell tabs while a cart has unfinished items (so nobody forgets to finish the bill) */
+function updateNavBadges(){
+  try{
+    document.querySelectorAll('.tab-btn, .bn-btn').forEach(b=>{
+      const t = b.dataset.tab;
+      const n = t==='pos' ? (state.cart||[]).length : t==='sell' ? (state.sellCart||[]).length : 0;
+      let badge = b.querySelector('.nav-badge');
+      if(n>0){
+        if(!badge){ badge = document.createElement('i'); badge.className = 'nav-badge'; b.appendChild(badge); }
+        badge.textContent = n;
+      }else if(badge){ badge.remove(); }
+    });
+  }catch(e){}
+}
+
 function render(){
   const app = document.getElementById('app');
   const tabs = allowedTabs();
@@ -969,6 +989,7 @@ function render(){
         </button>`).join('')}
     </nav>
   `;
+  updateNavBadges();
   app.querySelectorAll('.tab-btn, .bn-btn').forEach(b=>{
     b.addEventListener('click', ()=>{ state.ui.tab = b.dataset.tab; saveState(); render(); });
   });
