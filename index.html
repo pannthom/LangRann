@@ -2709,6 +2709,8 @@ function openResetModal(){
       <input type="text" id="rsP1" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 1" autocomplete="off" style="${fld}; margin-top:10px;">
       <input type="text" id="rsP2" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 2" autocomplete="off" style="${fld}">
       <input type="text" id="rsP3" autocapitalize="off" spellcheck="false" placeholder="รหัสชั้นที่ 3" autocomplete="off" style="${fld}">
+      <label style="display:flex; gap:8px; align-items:center; font-size:14px; cursor:pointer; margin-top:4px;"><input type="checkbox" id="rsKeepPrice"> เก็บราคารับซื้อ/ราคาขายเดิมไว้ (ล้างแค่สต๊อกและบิลทั้งหมด)</label>
+      <div class="field-hint" style="margin:2px 0 8px 26px;">โลโก้และข้อมูลร้านจะอยู่ครบเสมอ ไม่ถูกล้าง</div>
       <label style="display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer;"><input type="checkbox" id="rsCat"> ลบรายการประเภทสินค้าทิ้งด้วย (ไม่ติ๊ก = เก็บชื่อสินค้าไว้ ราคา/สต๊อกเป็น 0)</label></div>
     <div id="rsMsg" class="field-hint"></div>`,
     `<button class="btn" id="rsCancel">ยกเลิก</button><button class="btn danger" id="rsGo">สำรองข้อมูลแล้วล้างระบบ</button>`);
@@ -2720,6 +2722,7 @@ function openResetModal(){
     const go = document.getElementById('rsGo'); go.disabled = true;
     const args = { p1:v('rsP1'), p2:v('rsP2'), p3:v('rsP3') };
     const wipe_catalog = document.getElementById('rsCat').checked;
+    const keepPrices = document.getElementById('rsKeepPrice').checked && !wipe_catalog;
     const fail = (m)=>{ go.disabled = false; msg(''); toast(m,'err'); };
     // 1) ตรวจรหัสก่อน (ยังไม่ล้างอะไร)
     msg('กำลังตรวจรหัส…');
@@ -2734,7 +2737,7 @@ function openResetModal(){
     catch(e){ console.error(e); return fail('สร้างไฟล์สำรองไม่สำเร็จ จึงยังไม่ล้างระบบ'); }
     // 3) ล้างจริง
     msg('กำลังล้างระบบ…');
-    const { data, error } = await sb.rpc('reset_system', Object.assign({ wipe_catalog }, args));
+    const { data, error } = await sb.rpc('reset_system', Object.assign({ wipe_catalog }, keepPrices ? { keep_prices:true } : {}, args));
     if(error) return fail('ล้างระบบไม่สำเร็จ: '+friendlyErr(error));
     if(!data || !data.ok) return fail('ล้างระบบไม่สำเร็จ (รหัสไม่ผ่าน)');
     closeModal();

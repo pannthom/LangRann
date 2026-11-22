@@ -270,7 +270,9 @@ begin
 end $$;
 
 -- ล้างระบบ: ถ้ารหัสผิดจะไม่บอกว่าผิดชั้นไหน
-create or replace function public.reset_system(p1 text, p2 text, p3 text, wipe_catalog boolean default false)
+-- เวอร์ชันเก่า (4 พารามิเตอร์) ต้องลบก่อน ไม่งั้นจะมี 2 ฟังก์ชันชื่อซ้ำกัน
+drop function if exists public.reset_system(text, text, text, boolean);
+create or replace function public.reset_system(p1 text, p2 text, p3 text, wipe_catalog boolean default false, keep_prices boolean default false)
 returns jsonb language plpgsql security definer set search_path = public
 as $$
 declare r public.reset_secret;
@@ -293,10 +295,15 @@ begin
   if wipe_catalog then
     delete from public.materials where true;
   else
-    update public.materials
-       set stock = 0, updated_at = now(),
-           data = data || jsonb_build_object('buyPrice', 0, 'sellPrice', 0)
-     where true;   -- Supabase บังคับให้ UPDATE/DELETE ต้องมี WHERE
+    if keep_prices then
+      -- ล้างเฉพาะสต๊อก ราคารับซื้อ/ขายเดิมอยู่ครบ
+      update public.materials set stock = 0, updated_at = now() where true;
+    else
+      update public.materials
+         set stock = 0, updated_at = now(),
+             data = data || jsonb_build_object('buyPrice', 0, 'sellPrice', 0)
+       where true;   -- Supabase บังคับให้ UPDATE/DELETE ต้องมี WHERE
+    end if;
   end if;
   return jsonb_build_object('ok', true);
 end $$;
@@ -324,5 +331,5 @@ grant execute on function public.reset_check(text,text,text) to authenticated;
 
 grant execute on function public.reset_secret_status()                                  to authenticated;
 grant execute on function public.set_reset_secret(text,text,text,text,text,text)       to authenticated;
-grant execute on function public.reset_system(text,text,text,boolean)                  to authenticated;
+grant execute on function public.reset_system(text,text,text,boolean,boolean)                 to authenticated;
 revoke execute on function public._reset_hash(text,text,text,text) from anon, authenticated, public;
