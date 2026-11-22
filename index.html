@@ -278,10 +278,10 @@
 
   /* ---- modal ---- */
   .modal-overlay{ position:fixed; inset:0; background:rgba(6,20,17,0.55); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:50; animation:fadein .15s ease; }
-  .modal-overlay.sheet-overlay{ align-items:flex-end; padding:0; }
+  .modal-overlay.sheet-overlay{ align-items:flex-end; padding:0; overflow:hidden; }
   .modal{ background:var(--surface); border-radius:22px; width:100%; max-width:460px; box-shadow:0 30px 80px -20px rgba(0,0,0,0.5); animation:popin .18s ease; }
   .modal.wide{ max-width:420px; }
-  .modal.sheet{ max-width:100%; border-radius:24px 24px 0 0; max-height:88vh; display:flex; flex-direction:column; animation:sheetin .22s ease; }
+  .modal.sheet{ max-width:100%; border-radius:24px 24px 0 0; max-height:88vh; max-height:88dvh; display:flex; flex-direction:column; animation:sheetin .22s ease; }
   .modal.sheet .modal-body{ overflow-y:auto; padding-bottom:calc(18px + env(safe-area-inset-bottom,0px)); }
   .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--line); }
   .modal-head h3{ font-size:17px; }
@@ -2883,6 +2883,16 @@ function openModal(title, bodyHTML, footHTML, variant){
       overlay.style.top = kb ? vv.offsetTop+'px' : '';
       overlay.style.bottom = kb ? 'auto' : '';
       const mdl = overlay.querySelector('.modal');
+      const isSheet = overlay.classList.contains('sheet-overlay');
+      if(isSheet){
+        /* bottom sheet (buyer/seller name etc.): stay glued just above the keyboard, cap its height to the visible area, only the body scrolls */
+        if(mdl) mdl.style.maxHeight = kb ? Math.max(180, vv.height - 8)+'px' : '';
+        overlay.style.alignItems = '';
+        overlay.style.paddingTop = '';
+        overlay.style.paddingBottom = '';
+        if(kb){ const f = document.activeElement; if(f && overlay.contains(f) && /INPUT|TEXTAREA|SELECT/.test(f.tagName)) setTimeout(()=>{ try{ f.scrollIntoView({block:'nearest'}); }catch(e){} }, 60); }
+        return;
+      }
       const fits = mdl && mdl.offsetHeight < vv.height - 24;
       overlay.style.alignItems = (kb && fits) ? 'center' : '';   /* short dialogs: middle of the space above the keyboard; tall forms: top, scrollable */
       overlay.style.paddingTop = kb ? '8px' : '';
