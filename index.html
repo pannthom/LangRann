@@ -1552,9 +1552,10 @@ function openCategoriesModal(){
         </div>`).join('') : '<div class="field-hint">ยังไม่มีหมวดหมู่</div>'}
     </div>
     <div class="field-hint" style="margin-top:8px;">ช่องสั้น ๆ ข้างชื่อหมวดคือ <b>รหัสนำหน้า</b> ของสินค้า (เช่น MTL-001) แก้ได้ รหัสของสินค้าใหม่จะรันเลขต่อให้เอง<br>หมวดที่ยังมีสินค้าอยู่ลบไม่ได้ ถ้าจะลบ ให้แก้ชื่อหมวดของสินค้าเหล่านั้นก่อน</div>`;
-  openModal('จัดการหมวดหมู่', body, `<button class="btn" id="mCancel">ปิด</button>`);
+  openModal('จัดการหมวดหมู่', body, `<button class="btn" id="catRenum" style="margin-right:auto;">จัดรหัสสินค้าใหม่ตามหมวด</button><button class="btn" id="mCancel">ปิด</button>`);
   const ov = document.getElementById('modalOverlay');
   document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('catRenum').onclick = renumberSkusConfirm;
   const add = ()=>{
     const name = document.getElementById('catNew').value.trim();
     if(!name){ toast('ใส่ชื่อหมวดก่อน','err'); return; }
@@ -1577,6 +1578,32 @@ function openCategoriesModal(){
     saveState(); inp.value = catPrefix(inp.dataset.catPrefix); toast('ตั้งรหัสนำหน้าแล้ว');
   }));
   ov.querySelectorAll('[data-cat-rename]').forEach(b=> b.onclick = ()=> renameCategoryModal(b.dataset.catRename));
+}
+/* plan new SKUs: per prefix, in current product order -> PREFIX-001, 002, ... */
+function planSkuRenumber(){
+  const counters = {};
+  return state.materials.map(m=>{
+    const p = catPrefix(m.category || 'อื่นๆ');
+    counters[p] = (counters[p]||0) + 1;
+    return { m, from:m.sku||'', to: p + '-' + String(counters[p]).padStart(3,'0') };
+  });
+}
+function renumberSkusConfirm(){
+  const plan = planSkuRenumber();
+  const changes = plan.filter(x=>x.from!==x.to);
+  if(!changes.length){ toast('รหัสสินค้าทุกชิ้นตรงกับหมวดอยู่แล้ว'); return; }
+  const rows = changes.slice(0,8).map(x=>`<div style="display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-top:1px solid var(--line); font-size:13px;"><span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(x.m.name)}</span><span style="white-space:nowrap; color:var(--muted);">${esc(x.from||'—')} → <b style="color:var(--ink);">${esc(x.to)}</b></span></div>`).join('');
+  openModal('จัดรหัสสินค้าใหม่ตามหมวด', `
+    <p style="font-size:14px; line-height:1.6; margin-bottom:8px;">จะเปลี่ยนรหัสสินค้า <b>${changes.length}</b> จาก ${plan.length} รายการ ให้เป็น รหัสนำหน้าของหมวด + เลขเรียง 001, 002, … ตามลำดับสินค้าที่มีอยู่</p>
+    <div>${rows}${changes.length>8?`<div class="field-hint" style="padding-top:6px;">…และอีก ${changes.length-8} รายการ</div>`:''}</div>
+    <div class="field-hint" style="margin-top:10px;">ใบรับซื้อ/ใบขายที่ออกไปแล้วยังแสดงรหัสเดิมตามที่พิมพ์ไว้ ไม่ถูกแก้</div>`,
+    `<button class="btn" id="mCancel">ยกเลิก</button><button class="btn primary" id="mGo">เปลี่ยนรหัส</button>`);
+  document.getElementById('mCancel').onclick = openCategoriesModal;
+  document.getElementById('mGo').onclick = ()=>{
+    planSkuRenumber().forEach(x=>{ x.m.sku = x.to; });
+    saveState(); renderContent(); closeModal();
+    toast('จัดรหัสใหม่แล้ว '+changes.length+' รายการ');
+  };
 }
 function renameCategoryModal(oldName){
   openModal('แก้ชื่อหมวด', `<div class="field"><label>ชื่อหมวด</label><input id="catRen" value="${esc(oldName)}"></div>
