@@ -1839,6 +1839,7 @@ function viewBuySell(mode){
           <input id="${isSell?'buyerName':'sellerName'}" placeholder="${L.partyPlaceholder1}">
           <input id="${isSell?'buyerPhone':'sellerPhone'}" placeholder="${L.partyPlaceholder2}">
           ${isSell?'':`<input id="sellerIdCard" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;">`}
+          ${isSell?'':`<input id="sellerAddress" autocomplete="off" placeholder="ที่อยู่ผู้ขาย" style="flex:1 1 100%;">`}
         </div>
         <div class="cart-items">${cartItemsHTML(mode)}</div>
         <div class="cart-foot">
@@ -2025,11 +2026,13 @@ function cartSheetBodyHTML(mode){
   const nameEl = document.getElementById(isSell?'buyerName':'sellerName');
   const phoneEl = document.getElementById(isSell?'buyerPhone':'sellerPhone');
   const idEl = document.getElementById('sellerIdCard');
+  const addrEl = document.getElementById('sellerAddress');
   return `
     <div class="seller-fields" style="border:1px solid var(--line); border-radius:6px; margin-bottom:10px;">
       <input id="sheetPartyName" placeholder="${L.partyPlaceholder1}" value="${esc(nameEl?nameEl.value:'')}">
       <input id="sheetPartyPhone" placeholder="${L.partyPlaceholder2}" value="${esc(phoneEl?phoneEl.value:'')}">
       ${isSell?'':`<input id="sheetPartyId" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;" value="${esc(idEl?idEl.value:'')}">`}
+      ${isSell?'':`<input id="sheetPartyAddress" autocomplete="off" placeholder="ที่อยู่ผู้ขาย" style="flex:1 1 100%;" value="${esc(addrEl?addrEl.value:'')}">`}
     </div>
     ${cartArray(mode).length ? `<div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button class="btn ghost small" id="sheetClear">ล้างรายการ</button></div>` : ''}
     <div class="cart-items" style="padding:0;">${cartItemsHTML(mode)}</div>
@@ -2057,10 +2060,12 @@ function bindCartSheetOverlay(mode, overlay){
     const partyPhone = phone ? phone.value.trim() : '';
     const idf = overlay.querySelector('#sheetPartyId');
     const partyId = idf ? idf.value : '';
+    const adf = overlay.querySelector('#sheetPartyAddress');
+    const partyAddr = adf ? adf.value.trim() : '';
     if(mode!=='sell' && !validIdCard(partyId)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
     closeModal();
     if(mode==='sell') sellCheckout(partyName, partyPhone);
-    else checkout(partyName, partyPhone, partyId);
+    else checkout(partyName, partyPhone, partyId, partyAddr);
   };
 }
 function refreshCartSheetIfOpen(mode){
@@ -2072,6 +2077,8 @@ function refreshCartSheetIfOpen(mode){
   const prevName = overlay.querySelector('#sheetPartyName');
   const prevPhone = overlay.querySelector('#sheetPartyPhone');
   const prevId = overlay.querySelector('#sheetPartyId');
+  const prevAddr = overlay.querySelector('#sheetPartyAddress');
+  const keepAddr = prevAddr ? prevAddr.value : '';
   const keepId = prevId ? prevId.value : '';
   const keepName = prevName ? prevName.value : '';
   const keepPhone = prevPhone ? prevPhone.value : '';
@@ -2083,6 +2090,8 @@ function refreshCartSheetIfOpen(mode){
   if(newPhone) newPhone.value = keepPhone;
   const newId = overlay.querySelector('#sheetPartyId');
   if(newId) newId.value = keepId;
+  const newAddr = overlay.querySelector('#sheetPartyAddress');
+  if(newAddr) newAddr.value = keepAddr;
   bindCartSheetOverlay(mode, overlay);
 }
 
@@ -2093,7 +2102,7 @@ function idDigits(v){ return String(v||'').replace(/\D/g,''); }
 function validIdCard(v){ const d = idDigits(v); return d==='' || d.length===13; }
 function fmtIdCard(v){ const d = idDigits(v); return d.length===13 ? `${d[0]}-${d.slice(1,5)}-${d.slice(5,10)}-${d.slice(10,12)}-${d[12]}` : String(v||''); }
 
-async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg){
+async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg, sellerAddrArg){
   if(!state.cart.length || txBusy) return;
   const sellerIdRaw = sellerIdArg != null ? sellerIdArg : (document.getElementById('sellerIdCard') ? document.getElementById('sellerIdCard').value : '');
   if(!validIdCard(sellerIdRaw)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
@@ -2111,7 +2120,8 @@ async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg){
   // id คงเดิมตลอดการลองซ้ำ ถ้าเน็ตหลุดหลังบันทึกไปแล้ว กดอีกครั้งจะไม่เกิดใบซ้ำ
   const sig = JSON.stringify(items.map(i=>[i.mid,i.qty]));
   if(!txIds.buy || txIds.buy.sig!==sig) txIds.buy = { id:uid('pu'), date:new Date().toISOString(), sig };
-  const doc = { id:txIds.buy.id, date:txIds.buy.date, sellerName, sellerPhone, sellerIdCard, items, totalCost, totalProfit };
+  const sellerAddress = (sellerAddrArg != null ? sellerAddrArg : (document.getElementById('sellerAddress') ? document.getElementById('sellerAddress').value : '')).trim();
+  const doc = { id:txIds.buy.id, date:txIds.buy.date, sellerName, sellerPhone, sellerIdCard, sellerAddress, items, totalCost, totalProfit };
   txBusy = true;
   const { error } = await sb.rpc('record_purchase', { doc });
   txBusy = false;
@@ -2340,6 +2350,7 @@ function receiptHTML(purchase){
       <div class="r-info"><span>เลขที่ใบรับซื้อ</span><span class="mono">#${String(purchase.no).padStart(4,'0')}</span></div>
       <div class="r-info"><span>วันที่</span><span>${fmtDate(purchase.date)}</span></div>
       ${purchase.sellerName ? `<div class="r-info"><span>ผู้ขาย</span><span>${esc(purchase.sellerName)}</span></div>` : ''}
+      ${purchase.sellerAddress ? `<div class="r-info" style="align-items:flex-start;"><span style="flex:none;margin-right:8px;">ที่อยู่</span><span style="text-align:right;">${esc(purchase.sellerAddress)}</span></div>` : ''}
       ${purchase.sellerPhone ? `<div class="r-info"><span>เบอร์โทร</span><span>${esc(purchase.sellerPhone)}</span></div>` : ''}
       ${purchase.sellerIdCard ? `<div class="r-info"><span>เลขบัตร ปชช.</span><span>${esc(fmtIdCard(purchase.sellerIdCard))}</span></div>` : ''}
       <hr>
@@ -2850,7 +2861,7 @@ function sampleReceiptForPreview(){
   const m = state.materials[0];
   return {
     id:'preview', no: state.nextReceiptNo, date: new Date().toISOString(),
-    sellerName:'ตัวอย่างผู้ขาย', sellerPhone:'08x-xxx-xxxx', sellerIdCard:'1234567890123',
+    sellerName:'ตัวอย่างผู้ขาย', sellerPhone:'08x-xxx-xxxx', sellerIdCard:'1234567890123', sellerAddress:'99 ม.1 ต.ตัวอย่าง อ.เมือง',
     items: m ? [{ name:m.name, sku:m.sku, unit:m.unit, qty:5, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost:m.buyPrice*5 }] : [],
     totalCost: m ? m.buyPrice*5 : 0
   };
