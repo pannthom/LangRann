@@ -2832,7 +2832,7 @@ function openResetModal(){
     const args = { p1:v('rsP1'), p2:v('rsP2'), p3:v('rsP3') };
     const wipe_catalog = document.getElementById('rsCat').checked;
     const keepPrices = document.getElementById('rsKeepPrice').checked && !wipe_catalog;
-    const fail = (m)=>{ go.disabled = false; msg(''); toast(m,'err'); };
+    const fail = (m)=>{ go.disabled = false; const mm = document.getElementById('rsMsg'); if(mm){ mm.textContent = '⚠ '+m; mm.style.color = 'var(--loss)'; mm.style.fontWeight = '600'; try{ mm.scrollIntoView({block:'nearest'}); }catch(e){} } toast(m,'err'); };
     // 1) ตรวจรหัสก่อน (ยังไม่ล้างอะไร)
     msg('กำลังตรวจรหัส…');
     const chk = await sb.rpc('reset_check', args);
@@ -2847,7 +2847,11 @@ function openResetModal(){
     // 3) ล้างจริง
     msg('กำลังล้างระบบ…');
     const { data, error } = await sb.rpc('reset_system', Object.assign({ wipe_catalog }, keepPrices ? { keep_prices:true } : {}, args));
-    if(error) return fail('ล้างระบบไม่สำเร็จ: '+friendlyErr(error));
+    if(error){
+      console.error(error);
+      if(/keep_prices|could not find|schema cache|does not exist|PGRST202/i.test(error.message||'')) return fail('ล้างไม่สำเร็จ เพราะฐานข้อมูลยังเป็นเวอร์ชันเก่า ให้รันไฟล์ schema.sql ใหม่ใน Supabase (SQL Editor) แล้วลองอีกครั้ง ('+friendlyErr(error)+')');
+      return fail('ล้างระบบไม่สำเร็จ: '+friendlyErr(error));
+    }
     if(!data || !data.ok) return fail('ล้างระบบไม่สำเร็จ (รหัสไม่ผ่าน)');
     closeModal();
     state.cart = []; state.sellCart = []; txIds.buy = null; txIds.sell = null; saveState();
