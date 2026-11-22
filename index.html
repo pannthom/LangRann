@@ -2270,7 +2270,7 @@ async function exportSaleReceiptPDF(sale){
   try{
     const canvas = await renderAnyReceiptCanvas(saleReceiptHTML(sale));
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
+    const pdfWidthMM = state.shop.paperWidth || 80; /* set in Settings > paper size */
     const imgHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
     const pdfHeightMM = imgHeightMM + 25; /* ~2.5 cm blank paper below the signature line */
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
@@ -2358,7 +2358,7 @@ async function exportReceiptPDF(purchase){
   try{
     const canvas = await renderReceiptCanvas(purchase);
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
+    const pdfWidthMM = state.shop.paperWidth || 80; /* set in Settings > paper size */
     const imgHeightMM = pdfWidthMM * canvas.height / canvas.width; /* true aspect: no stretching */
     const pdfHeightMM = imgHeightMM + 25; /* ~2.5 cm blank paper below the signature line */
     const pdf = new jsPDF({ unit:'mm', format:[pdfWidthMM, pdfHeightMM] });
@@ -2382,7 +2382,7 @@ async function exportSelectedReceiptsPDF(){
   if(btn){ btn.disabled = true; btn.textContent = `กำลังสร้างไฟล์... (0/${purchasesToExport.length})`; }
   try{
     const { jsPDF } = window.jspdf;
-    const pdfWidthMM = 58; /* Deli E760DW paper: 58 mm wide */
+    const pdfWidthMM = state.shop.paperWidth || 80; /* set in Settings > paper size */
     let pdf = null;
     for(let i=0;i<purchasesToExport.length;i++){
       const purchase = purchasesToExport[i];
