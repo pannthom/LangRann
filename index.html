@@ -849,7 +849,7 @@ function seedMaterials(){
 }
 
 function defaultShop(){
-  return { name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo:null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 };
+  return { categories:[], name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo:null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 };
 }
 function defaultOverheads(){
   return [
@@ -1476,6 +1476,7 @@ function viewStock(){
         <h2>ประเภทของเก่าทั้งหมด (${state.materials.length})</h2>
         <div style="display:flex; gap:10px; align-items:center;">
           <div class="search-wrap">${ic('search')}<input id="stockSearch" placeholder="ค้นหาชื่อ, รหัส, หมวดหมู่" value="${esc(state.ui.stockQ)}"></div>
+          ${isAdmin() ? `<button class="btn" id="btnManageCats">หมวดหมู่</button>` : ''}
           <button class="btn primary" id="btnAddProduct">${ic('plus')} เพิ่มประเภท</button>
         </div>
       </div>
@@ -1512,6 +1513,68 @@ function viewStock(){
   `;
 }
 
+/* ---------- categories (หมวดหมู่): every category used by a product + extra empty ones saved in shop settings ---------- */
+function allCategories(){
+  const used = state.materials.map(m=>m.category).filter(Boolean);
+  return [...new Set([...used, ...((state.shop && state.shop.categories) || [])])];
+}
+function openCategoriesModal(){
+  const cats = allCategories();
+  const count = c => state.materials.filter(m=>m.category===c).length;
+  const rowBtn = 'background:none; border:none; cursor:pointer; color:var(--muted); font-size:13px; padding:4px 8px;';
+  const body = `
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <input id="catNew" placeholder="ชื่อหมวดใหม่ เช่น พลาสติก, ยาง, ไม้" style="flex:1; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--paper); color:var(--ink);">
+      <button class="btn primary" id="catAdd">เพิ่ม</button>
+    </div>
+    <div style="max-height:300px; overflow:auto;">
+      ${cats.length ? cats.map(c=>`
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 2px; border-top:1px solid var(--line);">
+          <span style="width:10px; height:10px; border-radius:50%; background:hsl(${catHue(c)} 70% 48%); flex:none;"></span>
+          <span style="flex:1; font-weight:600;">${esc(c)}</span>
+          <span style="font-size:12px; color:var(--muted);">${count(c)} รายการ</span>
+          <button data-cat-rename="${esc(c)}" style="${rowBtn}">แก้ชื่อ</button>
+          <button data-cat-del="${esc(c)}" style="${rowBtn}" ${count(c)?'disabled title="ย้ายสินค้าออกก่อนจึงลบได้" class="dis"':''}>ลบ</button>
+        </div>`).join('') : '<div class="field-hint">ยังไม่มีหมวดหมู่</div>'}
+    </div>
+    <div class="field-hint" style="margin-top:8px;">หมวดที่ยังมีสินค้าอยู่ลบไม่ได้ ถ้าจะลบ ให้แก้ชื่อหมวดของสินค้าเหล่านั้นก่อน</div>`;
+  openModal('จัดการหมวดหมู่', body, `<button class="btn" id="mCancel">ปิด</button>`);
+  const ov = document.getElementById('modalOverlay');
+  document.getElementById('mCancel').onclick = closeModal;
+  const add = ()=>{
+    const name = document.getElementById('catNew').value.trim();
+    if(!name){ toast('ใส่ชื่อหมวดก่อน','err'); return; }
+    if(allCategories().includes(name)){ toast('มีหมวดนี้อยู่แล้ว','err'); return; }
+    state.shop.categories = [...(state.shop.categories||[]), name];
+    saveState(); renderContent(); openCategoriesModal(); toast('เพิ่มหมวด “'+name+'” แล้ว');
+  };
+  document.getElementById('catAdd').onclick = add;
+  document.getElementById('catNew').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } });
+  ov.querySelectorAll('[data-cat-del]').forEach(b=> b.onclick = ()=>{
+    if(b.disabled) return;
+    const c = b.dataset.catDel;
+    state.shop.categories = (state.shop.categories||[]).filter(x=>x!==c);
+    saveState(); renderContent(); openCategoriesModal(); toast('ลบหมวดแล้ว');
+  });
+  ov.querySelectorAll('[data-cat-rename]').forEach(b=> b.onclick = ()=> renameCategoryModal(b.dataset.catRename));
+}
+function renameCategoryModal(oldName){
+  openModal('แก้ชื่อหมวด', `<div class="field"><label>ชื่อหมวด</label><input id="catRen" value="${esc(oldName)}"></div>
+    <div class="field-hint">สินค้าทุกชิ้นในหมวดนี้จะเปลี่ยนเป็นชื่อใหม่ด้วย</div>`,
+    `<button class="btn" id="mCancel">ยกเลิก</button><button class="btn primary" id="mSave">บันทึก</button>`);
+  document.getElementById('mCancel').onclick = openCategoriesModal;
+  document.getElementById('mSave').onclick = ()=>{
+    const nn = document.getElementById('catRen').value.trim();
+    if(!nn){ toast('ใส่ชื่อหมวด','err'); return; }
+    if(nn !== oldName && allCategories().includes(nn)){ toast('มีหมวดชื่อนี้อยู่แล้ว','err'); return; }
+    state.materials.forEach(m=>{ if(m.category===oldName) m.category = nn; });
+    state.shop.categories = (state.shop.categories||[]).map(x=> x===oldName ? nn : x);
+    if(state.ui.posCat===oldName) state.ui.posCat = nn;
+    if(state.ui.sellCat===oldName) state.ui.sellCat = nn;
+    saveState(); renderContent(); openCategoriesModal(); toast('เปลี่ยนชื่อหมวดแล้ว');
+  };
+}
+
 function priceHistoryHTML(m){
   const h = (m.priceHistory || []).slice().reverse();
   const dt = iso => { const d = new Date(iso); return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); };
@@ -1543,7 +1606,7 @@ function openProductModal(id){
     <div class="field-row">
       <div class="field"><label>รหัส (SKU)</label><input id="fSku" value="${editing?esc(editing.sku):''}" placeholder="เช่น MTL-001"></div>
       <div class="field"><label>หมวดหมู่</label><input id="fCat" list="catList" value="${editing?esc(editing.category):''}" placeholder="เช่น โลหะ, กระดาษ">
-        <datalist id="catList">${[...new Set(state.materials.map(m=>m.category))].map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+        <datalist id="catList">${allCategories().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
       </div>
     </div>
     <div class="field-row">
@@ -1698,7 +1761,7 @@ function viewBuySell(mode){
   const qKey = isSell ? 'sellQ' : 'posQ';
   const catKey = isSell ? 'sellCat' : 'posCat';
   const q = (state.ui[qKey]||'').trim().toLowerCase();
-  const cats = ['ทั้งหมด', ...new Set(state.materials.map(m=>m.category))];
+  const cats = ['ทั้งหมด', ...allCategories()];
   let list = state.materials.filter(m => !q || m.name.toLowerCase().includes(q) || m.sku.toLowerCase().includes(q));
   if(state.ui[catKey] !== 'ทั้งหมด') list = list.filter(m=>m.category===state.ui[catKey]);
   if(isSell) list = list.filter(m=>m.stock>0);
@@ -2831,6 +2894,8 @@ function bindContentEvents(){
   if(btnAddOverhead) btnAddOverhead.onclick = ()=> openOverheadModal(null);
   c.querySelectorAll('[data-edit-overhead]').forEach(b=> b.onclick = ()=> openOverheadModal(b.dataset.editOverhead));
   c.querySelectorAll('[data-del-overhead]').forEach(b=> b.onclick = ()=> deleteOverheadConfirm(b.dataset.delOverhead));
+  const manageCatsBtn = document.getElementById('btnManageCats');
+  if(manageCatsBtn) manageCatsBtn.onclick = openCategoriesModal;
   const addBtn = document.getElementById('btnAddProduct');
   if(addBtn) addBtn.onclick = ()=> openProductModal(null);
 
