@@ -849,7 +849,7 @@ function seedMaterials(){
 }
 
 function defaultShop(){
-  return { categories:[], name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo:null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 };
+  return { categories:[], catPrefix:{}, name:'ร้านรับซื้อของเก่า', address:'', phone:'', taxId:'', note:'ขอบคุณที่ใช้บริการ', highStockAlert:150, logo:null, logoSize:100, logoOffset:38, shopNameFont:'Taviraj', totalFont:'Taviraj', autoPrint:true, paperWidth:80 };
 }
 function defaultOverheads(){
   return [
@@ -1518,6 +1518,19 @@ function allCategories(){
   const used = state.materials.map(m=>m.category).filter(Boolean);
   return [...new Set([...used, ...((state.shop && state.shop.categories) || [])])];
 }
+/* product codes follow the category: PREFIX-001, PREFIX-002 ... (prefix editable per category) */
+const DEFAULT_PREFIX = { 'โลหะ':'MTL', 'กระดาษ':'PPR', 'พลาสติก':'PLS', 'แก้ว':'GLS', 'อิเล็กทรอนิกส์':'ELC' };
+function catPrefix(c){
+  const own = state.shop.catPrefix && state.shop.catPrefix[c];
+  return (own || DEFAULT_PREFIX[c] || 'ITM').toUpperCase();
+}
+function nextSku(category, excludeId){
+  const p = catPrefix(category);
+  const re = new RegExp('^'+p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'-(\\d+)$');
+  let max = 0;
+  state.materials.forEach(m=>{ if(m.id===excludeId) return; const r = re.exec(m.sku||''); if(r) max = Math.max(max, parseInt(r[1],10)); });
+  return p + '-' + String(max+1).padStart(3,'0');
+}
 function openCategoriesModal(){
   const cats = allCategories();
   const count = c => state.materials.filter(m=>m.category===c).length;
@@ -1532,12 +1545,13 @@ function openCategoriesModal(){
         <div style="display:flex; align-items:center; gap:8px; padding:8px 2px; border-top:1px solid var(--line);">
           <span style="width:10px; height:10px; border-radius:50%; background:hsl(${catHue(c)} 70% 48%); flex:none;"></span>
           <span style="flex:1; font-weight:600;">${esc(c)}</span>
+          <input data-cat-prefix="${esc(c)}" value="${esc(catPrefix(c))}" maxlength="6" autocapitalize="characters" title="รหัสนำหน้า" style="width:64px; padding:5px 6px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); text-align:center; font-size:12px;">
           <span style="font-size:12px; color:var(--muted);">${count(c)} รายการ</span>
           <button data-cat-rename="${esc(c)}" style="${rowBtn}">แก้ชื่อ</button>
           <button data-cat-del="${esc(c)}" style="${rowBtn}" ${count(c)?'disabled title="ย้ายสินค้าออกก่อนจึงลบได้" class="dis"':''}>ลบ</button>
         </div>`).join('') : '<div class="field-hint">ยังไม่มีหมวดหมู่</div>'}
     </div>
-    <div class="field-hint" style="margin-top:8px;">หมวดที่ยังมีสินค้าอยู่ลบไม่ได้ ถ้าจะลบ ให้แก้ชื่อหมวดของสินค้าเหล่านั้นก่อน</div>`;
+    <div class="field-hint" style="margin-top:8px;">ช่องสั้น ๆ ข้างชื่อหมวดคือ <b>รหัสนำหน้า</b> ของสินค้า (เช่น MTL-001) แก้ได้ รหัสของสินค้าใหม่จะรันเลขต่อให้เอง<br>หมวดที่ยังมีสินค้าอยู่ลบไม่ได้ ถ้าจะลบ ให้แก้ชื่อหมวดของสินค้าเหล่านั้นก่อน</div>`;
   openModal('จัดการหมวดหมู่', body, `<button class="btn" id="mCancel">ปิด</button>`);
   const ov = document.getElementById('modalOverlay');
   document.getElementById('mCancel').onclick = closeModal;
@@ -1556,6 +1570,12 @@ function openCategoriesModal(){
     state.shop.categories = (state.shop.categories||[]).filter(x=>x!==c);
     saveState(); renderContent(); openCategoriesModal(); toast('ลบหมวดแล้ว');
   });
+  ov.querySelectorAll('[data-cat-prefix]').forEach(inp=> inp.addEventListener('change', ()=>{
+    const v = inp.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    state.shop.catPrefix = Object.assign({}, state.shop.catPrefix, { [inp.dataset.catPrefix]: v || undefined });
+    if(!v) delete state.shop.catPrefix[inp.dataset.catPrefix];
+    saveState(); inp.value = catPrefix(inp.dataset.catPrefix); toast('ตั้งรหัสนำหน้าแล้ว');
+  }));
   ov.querySelectorAll('[data-cat-rename]').forEach(b=> b.onclick = ()=> renameCategoryModal(b.dataset.catRename));
 }
 function renameCategoryModal(oldName){
@@ -1569,6 +1589,7 @@ function renameCategoryModal(oldName){
     if(nn !== oldName && allCategories().includes(nn)){ toast('มีหมวดชื่อนี้อยู่แล้ว','err'); return; }
     state.materials.forEach(m=>{ if(m.category===oldName) m.category = nn; });
     state.shop.categories = (state.shop.categories||[]).map(x=> x===oldName ? nn : x);
+    if(state.shop.catPrefix && state.shop.catPrefix[oldName]){ state.shop.catPrefix[nn] = state.shop.catPrefix[oldName]; delete state.shop.catPrefix[oldName]; }
     if(state.ui.posCat===oldName) state.ui.posCat = nn;
     if(state.ui.sellCat===oldName) state.ui.sellCat = nn;
     saveState(); renderContent(); openCategoriesModal(); toast('เปลี่ยนชื่อหมวดแล้ว');
@@ -1641,6 +1662,18 @@ function openProductModal(id){
     imgPreview.innerHTML = ic('image');
     removeBtn.style.display = 'none';
   };
+  /* SKU follows the category until the user types their own code */
+  const skuEl = document.getElementById('fSku'), catEl = document.getElementById('fCat');
+  let skuTouched = false;
+  skuEl.addEventListener('input', ()=>{ skuTouched = true; });
+  const syncSku = ()=>{
+    const c = catEl.value.trim();
+    if(skuTouched || !c) return;
+    if(editing && c === editing.category) { skuEl.value = editing.sku; return; }
+    skuEl.value = nextSku(c, editing ? editing.id : null);
+  };
+  catEl.addEventListener('input', syncSku); catEl.addEventListener('change', syncSku);
+  if(!editing) syncSku();
   document.getElementById('mCancel').onclick = closeModal;
   document.getElementById('mSave').onclick = ()=>{
     const name = document.getElementById('fName').value.trim();
@@ -1661,7 +1694,7 @@ function openProductModal(id){
       Object.assign(editing, {name, sku, category, unit, buyPrice, sellPrice, stock, image: pendingImage});
       toast('แก้ไขข้อมูลแล้ว');
     }else{
-      state.materials.push({id:uid('m'), name, sku: sku || uid('sku').toUpperCase(), category, unit, buyPrice, sellPrice, stock, image: pendingImage, priceHistory:[{ date:new Date().toISOString(), buyPrice, sellPrice, first:true }]});
+      state.materials.push({id:uid('m'), name, sku: sku || nextSku(category), category, unit, buyPrice, sellPrice, stock, image: pendingImage, priceHistory:[{ date:new Date().toISOString(), buyPrice, sellPrice, first:true }]});
       toast('เพิ่มประเภทของเก่าแล้ว');
     }
     saveState(); closeModal(); renderContent();
