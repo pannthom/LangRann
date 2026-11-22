@@ -232,6 +232,14 @@
   .pos-grid{ display:grid; grid-template-columns:1fr 360px; gap:22px; align-items:start; }
   @media (max-width:880px){ .pos-grid{ grid-template-columns:1fr; } }
   .product-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); gap:14px; }
+  .cat-sec{ margin-bottom:22px; padding:12px 12px 14px; border-radius:20px; background:hsl(var(--ch) 70% 50% / 0.07); border:1px solid hsl(var(--ch) 60% 50% / 0.22); }
+  .cat-head{ display:flex; align-items:center; gap:9px; margin:0 2px 12px; }
+  .cat-dot{ width:12px; height:12px; border-radius:50%; background:hsl(var(--ch) 70% 48%); flex:none; }
+  .cat-name{ font-size:18px; font-weight:800; color:var(--ink); }
+  .cat-count{ margin-left:auto; font-size:12px; font-weight:600; color:hsl(var(--ch) 55% 38%); background:hsl(var(--ch) 70% 50% / 0.14); padding:3px 10px; border-radius:99px; }
+  .cat-sec .p-card .cat{ background:hsl(var(--ch) 70% 50% / 0.14); color:hsl(var(--ch) 55% 36%); }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cat-name{ color:#fff; } :root:not([data-theme="light"]) .cat-count, :root:not([data-theme="light"]) .cat-sec .p-card .cat{ color:hsl(var(--ch) 80% 78%); } }
+  :root[data-theme="dark"] .cat-name{ color:#fff; } :root[data-theme="dark"] .cat-count, :root[data-theme="dark"] .cat-sec .p-card .cat{ color:hsl(var(--ch) 80% 78%); }
   .p-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:12px; cursor:pointer; text-align:left; color:var(--ink); box-shadow:var(--shadow-sm); transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
   .p-card:hover{ border-color:var(--teal-light); transform:translateY(-3px); box-shadow:var(--shadow-md); }
   .p-card:active{ transform:scale(0.98); }
@@ -1672,6 +1680,13 @@ function cartTotalProfit(mode){
 }
 function cartCount(mode){ return cartArray(mode).length; }
 
+/* group products by category, each with its own colour, so the buy/sell screens read as clear sections */
+function catHue(c){ let h=0; for(const ch of String(c)) h=(h*31+ch.charCodeAt(0))%360; return h; }
+function catGroups(list){
+  const order=[], map={};
+  list.forEach(m=>{ const c=m.category||'อื่นๆ'; if(!map[c]){ map[c]=[]; order.push(c); } map[c].push(m); });
+  return order.map(c=>({cat:c, items:map[c]}));
+}
 function viewPOS(){ return viewBuySell('buy'); }
 function viewSell(){ return viewBuySell('sell'); }
 
@@ -1704,9 +1719,11 @@ function viewBuySell(mode){
             ${cats.map(c=>`<option value="${esc(c)}" ${c===state.ui[catKey]?'selected':''}>${esc(c)}</option>`).join('')}
           </select>
         </div>
-        ${list.length ? `
-        <div class="product-grid">
-          ${list.map(m=>`
+        ${list.length ? catGroups(list).map(g=>`
+        <section class="cat-sec" style="--ch:${catHue(g.cat)};">
+          <div class="cat-head"><span class="cat-dot"></span><span class="cat-name">${esc(g.cat)}</span><span class="cat-count">${g.items.length} รายการ</span></div>
+          <div class="product-grid">
+            ${g.items.map(m=>`
             <button class="p-card" data-add="${m.id}" data-cart-mode="${mode}">
               <div class="p-thumb">${m.image ? `<img src="${m.image}" alt="">` : ic('image')}</div>
               <div class="cat">${esc(m.category)}</div>
@@ -1714,7 +1731,8 @@ function viewBuySell(mode){
               <div class="pr">฿${money(materialPrice(m,mode))} <span class="u">/${esc(m.unit)}</span></div>
               <div class="st">มีในสต๊อก ${formatQty(m.stock)} ${esc(m.unit)}</div>
             </button>`).join('')}
-        </div>` : `<div class="empty">${ic('search')}<div>${isSell?'ไม่มีวัสดุในสต๊อกให้ขาย':'ไม่พบประเภทของเก่า'}</div></div>`}
+          </div>
+        </section>`).join('') : `<div class="empty">${ic('search')}<div>${isSell?'ไม่มีวัสดุในสต๊อกให้ขาย':'ไม่พบประเภทของเก่า'}</div></div>`}
       </div>
 
       <div class="cart-panel">
