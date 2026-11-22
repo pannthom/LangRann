@@ -1481,6 +1481,18 @@ function viewStock(){
   `;
 }
 
+function priceHistoryHTML(m){
+  const h = (m.priceHistory || []).slice().reverse();
+  const dt = iso => { const d = new Date(iso); return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); };
+  const row = e => e.first
+    ? `<div style="display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-top:1px solid var(--line);"><span>${dt(e.date)}</span><span>ตั้งราคาเริ่มต้น รับซื้อ ${money(e.buyPrice)} · ขาย ${money(e.sellPrice)}</span></div>`
+    : `<div style="display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-top:1px solid var(--line);"><span>${dt(e.date)}</span><span>รับซื้อ ${money(e.prevBuy)} → <b>${money(e.buyPrice)}</b> · ขาย ${money(e.prevSell)} → <b>${money(e.sellPrice)}</b></span></div>`;
+  return `<div class="field" style="margin-bottom:13px;">
+    <label>ประวัติการแก้ราคา</label>
+    <div style="font-size:12.5px; max-height:130px; overflow:auto; color:var(--muted);">${h.length ? h.map(row).join('') : '<div style="padding:5px 0;">ยังไม่มีประวัติ (จะเริ่มบันทึกตั้งแต่การแก้ราคาครั้งถัดไป)</div>'}</div>
+  </div>`;
+}
+
 function openProductModal(id){
   const editing = id ? getMaterial(id) : null;
   let pendingImage = editing ? (editing.image || null) : null;
@@ -1508,6 +1520,7 @@ function openProductModal(id){
       <div class="field"><label>ราคาขายต่อ (บาท/หน่วย)</label><input id="fSellPrice" type="number" min="0" step="0.01" value="${editing?editing.sellPrice:''}" placeholder="0.00"></div>
     </div>
     <div class="field-hint" style="margin-top:-6px; margin-bottom:13px;">ส่วนต่างนี้คือกำไรต่อหน่วยที่ระบบใช้คำนวณในแดชบอร์ด</div>
+    ${editing ? priceHistoryHTML(editing) : ''}
     <div class="field-row">
       <div class="field"><label>หน่วยนับ</label><input id="fUnit" value="${editing?esc(editing.unit):''}" placeholder="เช่น กก., ลูก, ชิ้น"></div>
       <div class="field"><label>จำนวนคงเหลือในร้าน</label><input id="fStock" type="number" min="0" step="0.01" value="${editing?formatQty(editing.stock):0}"></div>
@@ -1548,10 +1561,13 @@ function openProductModal(id){
     if(isNaN(sellPrice) || sellPrice < 0){ toast('กรุณากรอกราคาขายต่อให้ถูกต้อง','err'); return; }
     if(isNaN(stock) || stock < 0){ toast('กรุณากรอกจำนวนคงเหลือให้ถูกต้อง','err'); return; }
     if(editing){
+      if(buyPrice !== editing.buyPrice || sellPrice !== editing.sellPrice){
+        editing.priceHistory = (editing.priceHistory || []).concat([{ date:new Date().toISOString(), buyPrice, sellPrice, prevBuy:editing.buyPrice, prevSell:editing.sellPrice }]).slice(-100);
+      }
       Object.assign(editing, {name, sku, category, unit, buyPrice, sellPrice, stock, image: pendingImage});
       toast('แก้ไขข้อมูลแล้ว');
     }else{
-      state.materials.push({id:uid('m'), name, sku: sku || uid('sku').toUpperCase(), category, unit, buyPrice, sellPrice, stock, image: pendingImage});
+      state.materials.push({id:uid('m'), name, sku: sku || uid('sku').toUpperCase(), category, unit, buyPrice, sellPrice, stock, image: pendingImage, priceHistory:[{ date:new Date().toISOString(), buyPrice, sellPrice, first:true }]});
       toast('เพิ่มประเภทของเก่าแล้ว');
     }
     saveState(); closeModal(); renderContent();
@@ -2726,10 +2742,12 @@ function openModal(title, bodyHTML, footHTML, variant){
       overlay.style.height = kb ? vv.height+'px' : '';
       overlay.style.top = kb ? vv.offsetTop+'px' : '';
       overlay.style.bottom = kb ? 'auto' : '';
-      overlay.style.alignItems = kb ? 'center' : '';   /* middle of the space above the keyboard */
+      const mdl = overlay.querySelector('.modal');
+      const fits = mdl && mdl.offsetHeight < vv.height - 24;
+      overlay.style.alignItems = (kb && fits) ? 'center' : '';   /* short dialogs: middle of the space above the keyboard; tall forms: top, scrollable */
       overlay.style.paddingTop = kb ? '8px' : '';
       overlay.style.paddingBottom = kb ? '8px' : '';
-      if(kb){ const f = document.activeElement; if(f && overlay.contains(f)) setTimeout(()=>{ const b = overlay.querySelector('.modal-foot'); if(b) b.scrollIntoView({block:'nearest'}); }, 30); }
+      if(kb){ const f = document.activeElement; if(f && overlay.contains(f) && /INPUT|TEXTAREA|SELECT/.test(f.tagName)) setTimeout(()=>{ try{ f.scrollIntoView({block:'center'}); }catch(e){} }, 60); }
     };
     vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
   }
