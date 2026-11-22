@@ -2745,6 +2745,11 @@ function bindContentEvents(){
       stockSearch.focus(); stockSearch.selectionStart = stockSearch.selectionEnd = stockSearch.value.length;
     }
   }
+  // overhead costs (ต้นทุนแฝง) on the dashboard
+  const btnAddOverhead = document.getElementById('btnAddOverhead');
+  if(btnAddOverhead) btnAddOverhead.onclick = ()=> openOverheadModal(null);
+  c.querySelectorAll('[data-edit-overhead]').forEach(b=> b.onclick = ()=> openOverheadModal(b.dataset.editOverhead));
+  c.querySelectorAll('[data-del-overhead]').forEach(b=> b.onclick = ()=> deleteOverheadConfirm(b.dataset.delOverhead));
   const addBtn = document.getElementById('btnAddProduct');
   if(addBtn) addBtn.onclick = ()=> openProductModal(null);
 
