@@ -1864,7 +1864,7 @@ function viewBuySell(mode){
         <div class="cart-head"><h2 style="font-size:15px;">${L.title}</h2>${cart.length?`<button class="btn ghost small" data-clear-cart="${mode}">ล้างรายการ</button>`:''}</div>
         <div class="seller-fields">
           <input id="${isSell?'buyerName':'sellerName'}" placeholder="${L.partyPlaceholder1}">
-          <input id="${isSell?'buyerPhone':'sellerPhone'}" placeholder="${L.partyPlaceholder2}">
+          <input id="${isSell?'buyerPhone':'sellerPhone'}" type="tel" inputmode="tel" autocomplete="off" placeholder="${L.partyPlaceholder2}">
           ${isSell?'':`<input id="sellerIdCard" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;">`}
           ${isSell?'':`<input id="sellerAddress" autocomplete="off" placeholder="ที่อยู่ผู้ขาย" style="flex:1 1 100%;">`}
         </div>
@@ -2057,7 +2057,7 @@ function cartSheetBodyHTML(mode){
   return `
     <div class="seller-fields" style="border:1px solid var(--line); border-radius:6px; margin-bottom:10px;">
       <input id="sheetPartyName" placeholder="${L.partyPlaceholder1}" value="${esc(nameEl?nameEl.value:'')}">
-      <input id="sheetPartyPhone" placeholder="${L.partyPlaceholder2}" value="${esc(phoneEl?phoneEl.value:'')}">
+      <input id="sheetPartyPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="${L.partyPlaceholder2}" value="${esc(phoneEl?phoneEl.value:'')}">
       ${isSell?'':`<input id="sheetPartyId" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" style="flex:1 1 100%;" value="${esc(idEl?idEl.value:'')}">`}
       ${isSell?'':`<input id="sheetPartyAddress" autocomplete="off" placeholder="ที่อยู่ผู้ขาย" style="flex:1 1 100%;" value="${esc(addrEl?addrEl.value:'')}">`}
     </div>
@@ -2089,7 +2089,6 @@ function bindCartSheetOverlay(mode, overlay){
     const partyId = idf ? idf.value : '';
     const adf = overlay.querySelector('#sheetPartyAddress');
     const partyAddr = adf ? adf.value.trim() : '';
-    if(mode!=='sell' && !validIdCard(partyId)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
     closeModal();
     if(mode==='sell') sellCheckout(partyName, partyPhone);
     else checkout(partyName, partyPhone, partyId, partyAddr);
@@ -2132,7 +2131,6 @@ function fmtIdCard(v){ const d = idDigits(v); return d.length===13 ? `${d[0]}-${
 async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg, sellerAddrArg){
   if(!state.cart.length || txBusy) return;
   const sellerIdRaw = sellerIdArg != null ? sellerIdArg : (document.getElementById('sellerIdCard') ? document.getElementById('sellerIdCard').value : '');
-  if(!validIdCard(sellerIdRaw)){ toast('เลขบัตรประชาชนต้องมี 13 หลัก','err'); return; }
   const sellerIdCard = idDigits(sellerIdRaw);
   const sellerName = sellerNameArg != null ? sellerNameArg : (document.getElementById('sellerName') ? document.getElementById('sellerName').value.trim() : '');
   const sellerPhone = sellerPhoneArg != null ? sellerPhoneArg : (document.getElementById('sellerPhone') ? document.getElementById('sellerPhone').value.trim() : '');
