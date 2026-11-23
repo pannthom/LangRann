@@ -276,6 +276,8 @@
   :root[data-theme="dark"] .cart-total .val{ color:var(--gold); }
   .cart-profit-hint{ font-size:12px; color:var(--sage); margin-bottom:12px; font-weight:500; }
 
+  .cart-price-input{ width:72px; padding:2px 6px; margin:0 2px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:13px; text-align:right; }
+
   /* ---- modal ---- */
   .modal-overlay{ position:fixed; inset:0; background:rgba(6,20,17,0.55); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:50; animation:fadein .15s ease; }
   .modal-overlay.sheet-overlay{ align-items:flex-end; padding:0; overflow:hidden; }
@@ -1774,7 +1776,7 @@ function cartArray(mode){ return mode==='sell' ? state.sellCart : state.cart; }
 function setCartArray(mode, arr){ if(mode==='sell') state.sellCart = arr; else state.cart = arr; }
 function materialPrice(m, mode){ return mode==='sell' ? m.sellPrice : m.buyPrice; }
 function isWholesale(){ return isAdmin() && !!state.ui.sellWholesale; }
-function cartPrice(c, m, mode){ return (mode==='sell' && c && c.price!=null && isFinite(c.price)) ? c.price : materialPrice(m, mode); }
+function cartPrice(c, m, mode){ return (c && c.price!=null && isFinite(c.price)) ? c.price : materialPrice(m, mode); }
 function moneyP(n){ const v = Number(n); return Math.abs(v - Math.round(v*100)/100) < 1e-9 ? money(v) : v.toFixed(3).replace(/0+$/,''); }
 function cartLabel(mode){
   return mode==='sell'
@@ -1791,7 +1793,7 @@ function cartItemsHTML(mode){
     const overStock = mode==='sell' && c.qty >= m.stock;
     return `
     <div class="cart-row">
-      <div class="ci-name">${esc(m.name)}<div class="p">฿${moneyP(price)} × ${formatQty(c.qty)} ${esc(m.unit)}${(mode==='sell'&&c.price!=null)?' <span class="ws-tag">ขายส่ง</span>':''}${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
+      <div class="ci-name">${esc(m.name)}<div class="p">${mode==='buy' ? `฿<input type="number" class="mono cart-price-input" data-cart-price="${m.id}" data-cart-mode="buy" value="${price}" min="0" step="0.01" inputmode="decimal" title="แก้ราคาเฉพาะบิลนี้">` : `฿${moneyP(price)}`} × ${formatQty(c.qty)} ${esc(m.unit)}${(mode==='sell'&&c.price!=null)?' <span class="ws-tag">ขายส่ง</span>':''}${(mode==='buy'&&c.price!=null)?' <span class="ws-tag" style="background:#f97316; color:#fff;">ราคาพิเศษ</span>':''}${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
       <button class="stepper" data-cart-dec="${m.id}" data-cart-mode="${mode}">${ic('minus')}</button>
       <input type="number" class="mono cart-qty-input" data-cart-qty="${m.id}" data-cart-mode="${mode}" value="${formatQty(c.qty)}" min="0.01" step="0.01" inputmode="decimal">
       <button class="stepper" data-cart-inc="${m.id}" data-cart-mode="${mode}" ${overStock?'disabled':''}>${ic('plus')}</button>
@@ -1804,7 +1806,7 @@ function cartTotalAmount(mode){
 }
 function cartTotalProfit(mode){
   if(mode==='sell') return 0;
-  return cartArray(mode).reduce((a,c)=>{ const m=getMaterial(c.materialId); return a + (m?(m.sellPrice-m.buyPrice)*c.qty:0); },0);
+  return cartArray(mode).reduce((a,c)=>{ const m=getMaterial(c.materialId); return a + (m?(m.sellPrice-cartPrice(c,m,mode))*c.qty:0); },0);
 }
 function cartCount(mode){ return cartArray(mode).length; }
 
@@ -2023,6 +2025,14 @@ function setCartQty(mode, mid, rawValue){
   else row.qty = v;
   saveState(); renderContent(); refreshCartSheetIfOpen(mode);
 }
+function setCartPrice(mode, mid, rawValue){
+  const row = cartArray(mode).find(c=>c.materialId===mid); if(!row) return;
+  const m = getMaterial(mid);
+  const v = parseFloat(rawValue);
+  if(rawValue==='' || isNaN(v) || v<0 || (m && v===materialPrice(m, mode))) delete row.price;   // back to the normal price
+  else row.price = v;
+  saveState(); renderContent(); refreshCartSheetIfOpen(mode);
+}
 function removeFromCart(mode, mid){
   setCartArray(mode, cartArray(mode).filter(x=>x.materialId!==mid));
   saveState(); renderContent(); refreshCartSheetIfOpen(mode);
@@ -2037,6 +2047,9 @@ function bindCartEvents(container){
   container.querySelectorAll('[data-cart-dec]').forEach(b=> b.onclick = ()=> changeCartQty(b.dataset.cartMode||'buy', b.dataset.cartDec, -1));
   container.querySelectorAll('[data-cart-qty]').forEach(inp=>{
     inp.addEventListener('change', ()=> setCartQty(inp.dataset.cartMode||'buy', inp.dataset.cartQty, inp.value));
+  });
+  container.querySelectorAll('[data-cart-price]').forEach(inp=>{
+    inp.addEventListener('change', ()=> setCartPrice(inp.dataset.cartMode||'buy', inp.dataset.cartPrice, inp.value));
   });
   container.querySelectorAll('[data-cart-remove]').forEach(b=> b.onclick = ()=> removeFromCart(b.dataset.cartMode||'buy', b.dataset.cartRemove));
 }
@@ -2140,9 +2153,10 @@ async function checkout(sellerNameArg, sellerPhoneArg, sellerIdArg, sellerAddrAr
   const sellerPhone = sellerPhoneArg != null ? sellerPhoneArg : (document.getElementById('sellerPhone') ? document.getElementById('sellerPhone').value.trim() : '');
   const items = state.cart.map(c=>{
     const m = getMaterial(c.materialId);
-    const cost = Number((m.buyPrice*c.qty).toFixed(2));
-    const profit = Number(((m.sellPrice-m.buyPrice)*c.qty).toFixed(2));
-    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, buyPrice:m.buyPrice, sellPrice:m.sellPrice, cost, profit };
+    const bp = cartPrice(c, m, 'buy');          // one-off price for this bill (does not change the product's saved price)
+    const cost = Number((bp*c.qty).toFixed(2));
+    const profit = Number(((m.sellPrice-bp)*c.qty).toFixed(2));
+    return { mid:m.id, name:m.name, sku:m.sku, unit:m.unit, qty:c.qty, buyPrice:bp, sellPrice:m.sellPrice, cost, profit };
   });
   const totalCost = Number(items.reduce((a,i)=>a+i.cost,0).toFixed(2));
   const totalProfit = Number(items.reduce((a,i)=>a+i.profit,0).toFixed(2));
@@ -2287,29 +2301,39 @@ function deleteOverheadConfirm(id){
 /* ================= HISTORY (ใบรับซื้อ / ขายออก) ================= */
 /* ================= CUSTOMERS (built from receipts: sellers on buy bills, buyers on sell bills) ================= */
 function buildCustomers(){
-  const map = new Map();
-  const keyOf = (name, phone, id)=>{
-    const d = idDigits(id); if(d) return 'id:'+d;
-    const ph = String(phone||'').replace(/\D/g,''); if(ph) return 'ph:'+ph;
-    const n = String(name||'').trim().toLowerCase(); return n ? 'nm:'+n : null;
-  };
-  const add = (type, doc, name, phone, id, addr)=>{
-    const k = keyOf(name, phone, id); if(!k) return;
-    let c = map.get(k);
-    if(!c){ c = { key:k, name:'', phone:'', idCard:'', address:'', recs:[], buyCount:0, buyTotal:0, sellCount:0, sellTotal:0, last:'' }; map.set(k,c); }
-    c.recs.push({ type, doc, name, phone, id, addr });
-    if(type==='buy'){ c.buyCount++; c.buyTotal += Number(doc.totalCost)||0; } else { c.sellCount++; c.sellTotal += Number(doc.totalAmount)||0; }
-  };
-  state.purchases.forEach(p=> add('buy', p, p.sellerName, p.sellerPhone, p.sellerIdCard, p.sellerAddress));
-  state.sales.forEach(x=> add('sell', x, x.buyerName, x.buyerPhone, '', ''));
-  const out = [...map.values()];
+  const norm = v => String(v||'').replace(/\s+/g,' ').trim().toLowerCase();
+  const digits = v => String(v||'').replace(/\D/g,'');
+  /* one record per bill (buy: seller, sell: buyer) */
+  const bills = [];
+  state.purchases.forEach(p=> bills.push({ type:'buy', doc:p, name:p.sellerName, phone:p.sellerPhone, id:p.sellerIdCard, addr:p.sellerAddress }));
+  state.sales.forEach(x=> bills.push({ type:'sell', doc:x, name:x.buyerName, phone:x.buyerPhone, id:'', addr:'' }));
+  const groups = new Map();
+  const put = (key, b)=>{ let c = groups.get(key); if(!c){ c = { key, name:'', phone:'', idCard:'', address:'', recs:[], buyCount:0, buyTotal:0, sellCount:0, sellTotal:0, last:'' }; groups.set(key,c); } c.recs.push(b); };
+  /* identity = name + address (two people with the same name but different addresses are different customers).
+     A bill with a name but no address joins the only customer of that name, otherwise it stands alone. */
+  const named = bills.filter(b=> norm(b.name));
+  const withAddr = named.filter(b=> norm(b.addr));
+  withAddr.forEach(b=> put('na:'+norm(b.name)+'|'+norm(b.addr), b));
+  const noAddr = named.filter(b=> !norm(b.addr));
+  noAddr.forEach(b=>{
+    const n = norm(b.name);
+    const hits = [...groups.keys()].filter(k=> k.startsWith('na:'+n+'|') && k !== 'na:'+n+'|');
+    put(hits.length===1 ? hits[0] : 'na:'+n+'|', b);
+  });
+  /* bills with no name: fall back to ID card, then phone */
+  bills.filter(b=> !norm(b.name)).forEach(b=>{
+    const d = idDigits(b.id), ph = digits(b.phone);
+    if(d) put('id:'+d, b); else if(ph) put('ph:'+ph, b);
+  });
+  const out = [...groups.values()];
   out.forEach(c=>{
     c.recs.sort((a,b)=> String(b.doc.date).localeCompare(String(a.doc.date)));
     c.last = c.recs[0].doc.date;
-    c.recs.forEach(r=>{            // newest non-empty value wins
-      if(!c.name && r.name) c.name = String(r.name).trim();
+    c.recs.forEach(r=>{
+      if(r.type==='buy'){ c.buyCount++; c.buyTotal += Number(r.doc.totalCost)||0; } else { c.sellCount++; c.sellTotal += Number(r.doc.totalAmount)||0; }
+      if(!c.name && r.name) c.name = String(r.name).trim();           // newest non-empty value wins
       if(!c.phone && r.phone) c.phone = String(r.phone).trim();
-      if(!c.idCard && r.id) c.idCard = idDigits(r.id) ? String(r.id).trim() : '';
+      if(!c.idCard && idDigits(r.id)) c.idCard = String(r.id).trim();
       if(!c.address && r.addr) c.address = String(r.addr).trim();
     });
   });
@@ -2338,7 +2362,7 @@ function viewCustomers(){
       </table></div>
       <div id="custNone" class="empty" style="display:none;"><div>ไม่พบลูกค้าที่ค้นหา</div></div>`
       : `<div class="empty">${ic('users')}<div>ยังไม่มีประวัติลูกค้า</div><div class="hint">ใส่ชื่อหรือเบอร์ผู้ขาย/ผู้ซื้อตอนทำรายการ ระบบจะเก็บประวัติให้อัตโนมัติ</div></div>`}
-      <div class="field-hint" style="margin:10px 16px 4px;">รายชื่อสร้างจากใบรับซื้อ/ใบขายอัตโนมัติ (จับคู่ด้วยเลขบัตร ถ้าไม่มีใช้เบอร์โทร ถ้าไม่มีใช้ชื่อ) ใช้ข้อมูลจากครั้งล่าสุดเป็นหลัก</div>
+      <div class="field-hint" style="margin:10px 16px 4px;">รายชื่อสร้างจากใบรับซื้อ/ใบขายอัตโนมัติ (จับคู่ด้วย ชื่อ + ที่อยู่) ใช้ข้อมูลจากครั้งล่าสุดเป็นหลัก</div>
     </div>`;
 }
 function openCustomerModal(key){
@@ -2377,16 +2401,27 @@ function attachCustomerAutofill(root, nameSel, phoneSel, idSel, addrSel){
   let dl = document.getElementById('custNames');
   if(!dl){ dl = document.createElement('datalist'); dl.id = 'custNames'; document.body.appendChild(dl); }
   const custs = buildCustomers();
-  dl.innerHTML = custs.filter(c=>c.name).map(c=>`<option value="${esc(c.name)}"></option>`).join('');
+  dl.innerHTML = [...new Set(custs.filter(c=>c.name).map(c=>c.name))].map(n=>`<option value="${esc(n)}"></option>`).join('');
   name.setAttribute('list','custNames');
   const fill = (c)=>{
     const set = (sel, v)=>{ const el = sel && root.querySelector(sel); if(el && !el.value && v) el.value = v; };
     set(phoneSel, c.phone); set(idSel, c.idCard); set(addrSel, c.address);
   };
-  name.addEventListener('change', ()=>{ const n = name.value.trim().toLowerCase(); const c = n && custs.find(x=>x.name.toLowerCase()===n); if(c){ if(!name.value) name.value = c.name; fill(c); } });
+  const norm = v => String(v||'').replace(/\s+/g,' ').trim().toLowerCase();
+  const addr = addrSel ? root.querySelector(addrSel) : null;
+  /* only fill when it is unambiguous: same name + same address, or a name that belongs to a single customer */
+  const byName = ()=>{
+    const n = norm(name.value); if(!n) return;
+    const same = custs.filter(x=> norm(x.name)===n);
+    if(addr && addr.value.trim()){ const c = same.find(x=> norm(x.address)===norm(addr.value)); if(c) fill(c); return; }
+    if(same.length===1) fill(same[0]);
+  };
+  name.addEventListener('change', byName);
+  if(addr) addr.addEventListener('change', byName);
   if(phone) phone.addEventListener('change', ()=>{
     const d = phone.value.replace(/\D/g,''); if(!d) return;
-    const c = custs.find(x=>x.phone.replace(/\D/g,'')===d); if(c){ if(!name.value) name.value = c.name; fill(c); }
+    const hits = custs.filter(x=> x.phone.replace(/\D/g,'')===d);
+    if(hits.length===1){ if(!name.value) name.value = hits[0].name; fill(hits[0]); }
   });
 }
 
