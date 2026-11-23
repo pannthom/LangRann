@@ -1793,7 +1793,7 @@ function cartItemsHTML(mode){
     const overStock = mode==='sell' && c.qty >= m.stock;
     return `
     <div class="cart-row">
-      <div class="ci-name">${esc(m.name)}<div class="p">${mode==='buy' ? `฿<input type="number" class="mono cart-price-input" data-cart-price="${m.id}" data-cart-mode="buy" value="${price}" min="0" step="0.01" inputmode="decimal" title="แก้ราคาเฉพาะบิลนี้">` : `฿${moneyP(price)}`} × ${formatQty(c.qty)} ${esc(m.unit)}${(mode==='sell'&&c.price!=null)?' <span class="ws-tag">ขายส่ง</span>':''}${(mode==='buy'&&c.price!=null)?' <span class="ws-tag" style="background:#f97316; color:#fff;">ราคาพิเศษ</span>':''}${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
+      <div class="ci-name">${esc(m.name)}<div class="p">฿<input type="number" class="mono cart-price-input" data-cart-price="${m.id}" data-cart-mode="${mode}" value="${price}" min="0" step="0.01" inputmode="decimal" title="แก้ราคาเฉพาะบิลนี้"> × ${formatQty(c.qty)} ${esc(m.unit)} <span class="ws-tag" data-ptag="${m.id}" style="${c.price!=null?'':'display:none;'}${(mode==='sell'&&isWholesale())?'':' background:#f97316; color:#fff;'}">${(mode==='sell'&&isWholesale())?'ขายส่ง':'ราคาพิเศษ'}</span>${mode==='sell'?` <span style="color:var(--muted);">(มี ${formatQty(m.stock)})</span>`:''}</div></div>
       <button class="stepper" data-cart-dec="${m.id}" data-cart-mode="${mode}">${ic('minus')}</button>
       <input type="number" class="mono cart-qty-input" data-cart-qty="${m.id}" data-cart-mode="${mode}" value="${formatQty(c.qty)}" min="0.01" step="0.01" inputmode="decimal">
       <button class="stepper" data-cart-inc="${m.id}" data-cart-mode="${mode}" ${overStock?'disabled':''}>${ic('plus')}</button>
@@ -2031,7 +2031,12 @@ function setCartPrice(mode, mid, rawValue){
   const v = parseFloat(rawValue);
   if(rawValue==='' || isNaN(v) || v<0 || (m && v===materialPrice(m, mode))) delete row.price;   // back to the normal price
   else row.price = v;
-  saveState(); renderContent(); refreshCartSheetIfOpen(mode);
+  saveState();
+  /* update totals / tag in place (no re-render, the input keeps focus and taps are not lost) */
+  document.querySelectorAll('.cart-total .val').forEach(e=> e.textContent = '฿'+money(cartTotalAmount(mode)));
+  document.querySelectorAll('.cart-profit-hint').forEach(e=> e.textContent = 'กำไรโดยประมาณ ฿'+money(cartTotalProfit(mode)));
+  document.querySelectorAll('.csb-total').forEach(e=> e.textContent = '฿'+money(cartTotalAmount(mode)));
+  document.querySelectorAll('[data-ptag="'+mid+'"]').forEach(e=> e.style.display = row.price!=null ? '' : 'none');
 }
 function removeFromCart(mode, mid){
   setCartArray(mode, cartArray(mode).filter(x=>x.materialId!==mid));
@@ -2049,7 +2054,11 @@ function bindCartEvents(container){
     inp.addEventListener('change', ()=> setCartQty(inp.dataset.cartMode||'buy', inp.dataset.cartQty, inp.value));
   });
   container.querySelectorAll('[data-cart-price]').forEach(inp=>{
-    inp.addEventListener('change', ()=> setCartPrice(inp.dataset.cartMode||'buy', inp.dataset.cartPrice, inp.value));
+    /* applied as you type and refreshed in place: re-rendering the list here would swallow a tap on the pay button */
+    const apply = ()=> setCartPrice(inp.dataset.cartMode||'buy', inp.dataset.cartPrice, inp.value);
+    inp.addEventListener('input', apply);
+    inp.addEventListener('change', apply);
+    inp.addEventListener('focus', ()=>{ try{ inp.select(); }catch(e){} });
   });
   container.querySelectorAll('[data-cart-remove]').forEach(b=> b.onclick = ()=> removeFromCart(b.dataset.cartMode||'buy', b.dataset.cartRemove));
 }
