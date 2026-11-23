@@ -2300,6 +2300,23 @@ function deleteOverheadConfirm(id){
 
 /* ================= HISTORY (ใบรับซื้อ / ขายออก) ================= */
 /* ================= CUSTOMERS (built from receipts: sellers on buy bills, buyers on sell bills) ================= */
+/* search helpers: names may carry a title (นาย/นาง/แม่/พ่อ/น้า/อา/ป้า…) but people search by the bare name.
+   Spaces are ignored, so "แม่ สมศรี", "แม่สมศรี" and "สมศรี" all find the same customer. */
+function squash(v){ return String(v||'').replace(/\s+/g,'').toLowerCase(); }
+const NAME_TITLES = ['นางสาว','นาง','นาย','น.ส.','ด.ช.','ด.ญ.','คุณ','แม่','พ่อ','น้า','อา','ป้า','ลุง','ปู่','ย่า','ตา','ยาย','พี่','น้อง','เฮีย','เจ๊','ซ้อ','ครู','หมอ','อาจารย์'];
+function bareName(v){
+  let t = String(v||'').trim();
+  for(let i=0;i<3;i++){
+    const hit = NAME_TITLES.find(x=> t.startsWith(x) && t.length>x.length);
+    if(!hit) break;
+    const rest = t.slice(hit.length);
+    /* short kinship words are only stripped when followed by a space, so names like "อาทิตย์" stay whole */
+    if(['อา','ตา','พี่','น้อง','น้า','ป้า','ลุง','ปู่','ย่า','ยาย','ซ้อ','เจ๊','เฮีย','ครู','หมอ'].includes(hit) && !/^\s/.test(rest)) break;
+    t = rest.trim();
+  }
+  return t;
+}
+function customerEdits(){ return state.shop.customerEdits || (state.shop.customerEdits = {}); }
 function buildCustomers(){
   const norm = v => String(v||'').replace(/\s+/g,' ').trim().toLowerCase();
   const digits = v => String(v||'').replace(/\D/g,'');
@@ -2325,6 +2342,17 @@ function buildCustomers(){
     const d = idDigits(b.id), ph = digits(b.phone);
     if(d) put('id:'+d, b); else if(ph) put('ph:'+ph, b);
   });
+  /* manual edits (stored in shop settings, keyed by the customer's original key): a later bill that uses the edited name+address joins the edited customer */
+  const edits = customerEdits();
+  Object.keys(edits).forEach(k=>{
+    const ov = edits[k]; const g = groups.get(k); if(!g) return;
+    const nm = norm(ov.name != null ? ov.name : ''); if(!nm) return;
+    const addr = norm(ov.address != null ? ov.address : '');
+    [ 'na:'+nm+'|'+addr, 'na:'+nm+'|' ].forEach(k2=>{
+      const o = groups.get(k2);
+      if(o && o !== g){ g.recs.push(...o.recs); groups.delete(k2); }
+    });
+  });
   const out = [...groups.values()];
   out.forEach(c=>{
     c.recs.sort((a,b)=> String(b.doc.date).localeCompare(String(a.doc.date)));
@@ -2336,6 +2364,15 @@ function buildCustomers(){
       if(!c.idCard && idDigits(r.id)) c.idCard = String(r.id).trim();
       if(!c.address && r.addr) c.address = String(r.addr).trim();
     });
+  });
+  out.forEach(c=>{
+    c.allNames = [...new Set(c.recs.map(r=>String(r.name||'').trim()).filter(Boolean))];
+    const ov = edits[c.key];
+    if(ov){
+      c.hasEdit = true; c.history = ov.history || [];
+      ['name','phone','idCard','address'].forEach(f=>{ if(ov[f] != null) c[f] = ov[f]; });
+      if(c.name && !c.allNames.includes(c.name)) c.allNames.push(c.name);
+    } else c.history = [];
   });
   out.sort((a,b)=> String(b.last).localeCompare(String(a.last)));
   return out;
@@ -2351,7 +2388,7 @@ function viewCustomers(){
         <thead><tr><th>ชื่อ</th><th>ที่อยู่</th><th>เบอร์โทร</th><th class="num">รับซื้อจากเขา</th><th class="num">ขายให้เขา</th><th>ล่าสุด</th></tr></thead>
         <tbody>
           ${list.map(c=>`
-            <tr class="receipt-list-row" data-cust="${esc(c.key)}" data-q="${esc((c.name+' '+c.phone+' '+c.idCard+' '+c.address).toLowerCase())}">
+            <tr class="receipt-list-row" data-cust="${esc(c.key)}" data-q="${esc(squash(c.allNames.join(' ')+' '+c.allNames.map(bareName).join(' ')+' '+c.phone+' '+c.idCard+' '+c.address))}">
               <td><b>${c.name ? esc(c.name) : '<span style="color:var(--muted);">(ไม่มีชื่อ)</span>'}</b></td>
               <td>${c.address ? esc(c.address) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="mono">${c.phone ? esc(c.phone) : '<span style="color:var(--muted);">—</span>'}</td>
@@ -2386,14 +2423,42 @@ function openCustomerModal(key){
     </div>
     <div style="font-weight:600; font-size:14px; margin:12px 0 2px;">ประวัติ (${c.recs.length})</div>
     <div style="max-height:46vh; overflow:auto;">${recs}</div>
-    <div class="field-hint" style="margin-top:8px;">กดที่รายการเพื่อดูใบเสร็จ</div>`,
-    `<button class="btn" id="mCancel">ปิด</button>`);
+    <div class="field-hint" style="margin-top:8px;">กดที่รายการเพื่อดูใบเสร็จ</div>
+    ${c.history.length ? `<div style="font-weight:600; font-size:14px; margin:14px 0 2px;">ประวัติการแก้ไขข้อมูล (${c.history.length})</div>
+      <div style="max-height:22vh; overflow:auto;">${[...c.history].reverse().map(h=>`<div style="padding:7px 2px; border-top:1px solid var(--line); font-size:12.5px;"><div style="color:var(--muted);">${fmtDate(h.date)}${h.by?' · โดย '+esc(h.by):''}</div>${h.changes.map(x=>`<div>${esc(x.label)}: <span style="color:var(--muted);">${x.from?esc(x.from):'(ว่าง)'}</span> → <b>${x.to?esc(x.to):'(ว่าง)'}</b></div>`).join('')}</div>`).join('')}</div>` : ''}`,
+    `<button class="btn" id="custEdit" style="margin-right:auto;">แก้ข้อมูลลูกค้า</button><button class="btn" id="mCancel">ปิด</button>`);
   document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('custEdit').onclick = ()=> openCustomerEditModal(c.key);
   document.querySelectorAll('#modalOverlay [data-crec]').forEach(el=> el.onclick = ()=>{
     const r = c.recs[+el.dataset.crec];
     closeModal();
     if(r.type==='buy') openReceiptModal(r.doc.id); else openSaleReceiptModal(r.doc.id);
   });
+}
+function openCustomerEditModal(key){
+  const c = buildCustomers().find(x=>x.key===key); if(!c) return;
+  const fld = 'width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink);';
+  openModal('แก้ข้อมูลลูกค้า', `
+    <div class="field"><label>ชื่อ (ใส่คำนำหน้าได้ เช่น แม่ พ่อ น้า ป้า)</label><input id="ceName" style="${fld}" value="${esc(c.name)}"></div>
+    <div class="field"><label>เบอร์โทร</label><input id="cePhone" type="tel" inputmode="tel" style="${fld}" value="${esc(c.phone)}"></div>
+    <div class="field"><label>เลขบัตร ปชช.</label><input id="ceId" inputmode="numeric" maxlength="17" style="${fld}" value="${esc(c.idCard)}"></div>
+    <div class="field"><label>ที่อยู่</label><input id="ceAddr" style="${fld}" value="${esc(c.address)}"></div>
+    <div class="field-hint">แก้เฉพาะข้อมูลของลูกค้าคนนี้ ใบรับซื้อ/ใบขายที่ออกไปแล้วไม่ถูกแก้ ระบบจะจดประวัติว่าแก้อะไรเมื่อไหร่</div>`,
+    `<button class="btn" id="mCancel">ยกเลิก</button><button class="btn primary" id="mSave">บันทึก</button>`);
+  document.getElementById('mCancel').onclick = ()=> openCustomerModal(key);
+  document.getElementById('mSave').onclick = ()=>{
+    const nv = { name:document.getElementById('ceName').value.trim(), phone:document.getElementById('cePhone').value.trim(), idCard:document.getElementById('ceId').value.trim(), address:document.getElementById('ceAddr').value.trim() };
+    const labels = { name:'ชื่อ', phone:'เบอร์โทร', idCard:'เลขบัตร ปชช.', address:'ที่อยู่' };
+    const changes = Object.keys(labels).filter(f=> nv[f] !== (c[f]||'')).map(f=>({ field:f, label:labels[f], from:c[f]||'', to:nv[f] }));
+    if(!changes.length){ toast('ไม่มีอะไรเปลี่ยน'); openCustomerModal(key); return; }
+    const edits = customerEdits();
+    const ov = edits[key] || (edits[key] = { history:[] });
+    ov.history = ov.history || [];
+    changes.forEach(ch=>{ ov[ch.field] = ch.to; });
+    ov.history.push({ date:new Date().toISOString(), by:(profile ? profile.username : ''), changes:changes.map(({label,from,to})=>({label,from,to})) });
+    saveState(); renderContent(); toast('แก้ข้อมูลลูกค้าแล้ว');
+    openCustomerModal(key);
+  };
 }
 /* typing a known name/phone in the buy/sell form fills the rest (only empty fields) */
 function attachCustomerAutofill(root, nameSel, phoneSel, idSel, addrSel){
@@ -2402,10 +2467,17 @@ function attachCustomerAutofill(root, nameSel, phoneSel, idSel, addrSel){
   let dl = document.getElementById('custNames');
   if(!dl){ dl = document.createElement('datalist'); dl.id = 'custNames'; document.body.appendChild(dl); }
   const custs = buildCustomers();
-  dl.innerHTML = [...new Set(custs.filter(c=>c.name).map(c=>c.name))].map(n=>`<option value="${esc(n)}"></option>`).join('');
+  dl.innerHTML = [...new Set(custs.flatMap(c=>[c.name, ...(c.allNames||[])]).filter(Boolean))].map(n=>`<option value="${esc(n)}"></option>`).join('');
   name.setAttribute('list','custNames');
   const fill = (c)=>{
-    const set = (sel, v)=>{ const el = sel && root.querySelector(sel); if(el && !el.value && v) el.value = v; };
+    const set = (sel, v)=>{
+      const el = sel && root.querySelector(sel); if(!el || el.value || !v) return;
+      el.value = v; el.dataset.auto = '1';
+      if(!el.dataset.autoBound){ el.dataset.autoBound = '1';
+        el.addEventListener('focus', ()=>{ if(el.dataset.auto==='1'){ try{ el.select(); }catch(e){} } });   // a different person with the same name: just start typing to replace
+        el.addEventListener('input', ()=>{ el.dataset.auto = ''; });
+      }
+    };
     set(phoneSel, c.phone); set(idSel, c.idCard); set(addrSel, c.address);
   };
   const norm = v => String(v||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -2413,7 +2485,10 @@ function attachCustomerAutofill(root, nameSel, phoneSel, idSel, addrSel){
   /* only fill when it is unambiguous: same name + same address, or a name that belongs to a single customer */
   const byName = ()=>{
     const n = norm(name.value); if(!n) return;
-    const same = custs.filter(x=> norm(x.name)===n);
+    const sq = squash(name.value);
+    const hasName = (x, fn)=> (x.allNames||[x.name]).some(nm=> fn(nm));
+    let same = custs.filter(x=> hasName(x, nm=> norm(nm)===n));                                   // exact
+    if(!same.length) same = custs.filter(x=> hasName(x, nm=> squash(bareName(nm))===sq));        // typed without the title
     if(addr && addr.value.trim()){ const c = same.find(x=> norm(x.address)===norm(addr.value)); if(c) fill(c); return; }
     if(same.length===1) fill(same[0]);
   };
@@ -3195,7 +3270,7 @@ function bindContentEvents(){
   // Customers
   const custSearch = document.getElementById('custSearch');
   if(custSearch) custSearch.addEventListener('input', ()=>{
-    const q = custSearch.value.trim().toLowerCase(); let shown = 0;
+    const q = squash(custSearch.value); let shown = 0;
     c.querySelectorAll('#custTable tbody tr').forEach(tr=>{ const ok = !q || tr.dataset.q.includes(q); tr.style.display = ok ? '' : 'none'; if(ok) shown++; });
     const none = document.getElementById('custNone'); if(none) none.style.display = shown ? 'none' : '';
   });
