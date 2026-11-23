@@ -1895,13 +1895,14 @@ function openWeightModal(mode, mid){
   const ws = isSell && isWholesale();
   const existing = cartArray(mode).find(c=>c.materialId===mid);
   if(ws) return openWholesaleModal(m, existing);
-  const price = materialPrice(m, mode);
+  const basePrice = materialPrice(m, mode);
+  const startPrice = existing ? cartPrice(existing, m, mode) : basePrice;   // adding more to a line keeps that line's price
   const inCart = (existing||{}).qty || 0;
   const maxQty = isSell ? Number((m.stock - inCart).toFixed(3)) : Infinity;
   if(isSell && maxQty <= 0){ toast('สต๊อกไม่พอ','err'); return; }
   openModal(esc(m.name), `
     <div style="text-align:center;">
-      <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">฿${money(price)} / ${esc(m.unit)}${isSell?` · เหลือ ${formatQty(maxQty)} ${esc(m.unit)}`:''}${inCart?` · ในรายการแล้ว ${formatQty(inCart)}`:''}</div>
+      <div style="color:var(--muted); font-size:13px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:4px 6px;"><span>ราคา ฿</span><input id="wtPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${startPrice}" title="แก้ราคาเฉพาะบิลนี้" style="width:84px; font-size:16px; font-weight:600; text-align:center; padding:4px 6px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--ink);"><span>/ ${esc(m.unit)}</span><span id="wtSp" style="color:#f97316; font-weight:700; display:none;">ราคาพิเศษ</span>${isSell?` · เหลือ ${formatQty(maxQty)} ${esc(m.unit)}`:''}${inCart?` · ในรายการแล้ว ${formatQty(inCart)}`:''}</div>
       <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
         <input id="wtInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" style="width:170px; font-size:34px; font-weight:700; text-align:center; padding:12px 8px; border:2px solid var(--line); border-radius:18px; background:var(--paper); color:var(--ink);">
         <span style="font-size:18px; font-weight:600;">${esc(m.unit)}</span>
@@ -1910,16 +1911,24 @@ function openWeightModal(mode, mid){
     </div>`,
     `<button class="btn" id="wtCancel">ยกเลิก</button><button class="btn primary" id="wtOk" disabled>เพิ่มลงรายการ</button>`);
   const inp = document.getElementById('wtInput'), ok = document.getElementById('wtOk'), tot = document.getElementById('wtTotal');
+  const pin = document.getElementById('wtPrice'), sp = document.getElementById('wtSp');
   const val = ()=>{ const v = parseFloat(inp.value); return isFinite(v) && v>0 ? v : 0; };
-  inp.addEventListener('input', ()=>{
-    const v = val();
-    tot.innerHTML = `รวม <b style="font-size:22px; color:var(--ink);">฿${money(v*price)}</b>${v>maxQty?' <span style="color:var(--loss);">· สต๊อกไม่พอ</span>':''}`;
+  const unitPrice = ()=>{ const v = parseFloat(pin.value); return isFinite(v) && v>=0 ? v : basePrice; };
+  const refresh = ()=>{
+    const v = val(), pr = unitPrice();
+    sp.style.display = (pr !== basePrice) ? '' : 'none';
+    tot.innerHTML = `รวม <b style="font-size:22px; color:var(--ink);">฿${money(v*pr)}</b>${v>maxQty?' <span style="color:var(--loss);">· สต๊อกไม่พอ</span>':''}`;
     ok.disabled = !(v>0 && v<=maxQty);
-  });
+  };
+  inp.addEventListener('input', refresh);
+  pin.addEventListener('input', refresh);
+  pin.addEventListener('focus', ()=>{ try{ pin.select(); }catch(e){} });
+  pin.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.focus(); } });
+  refresh();
   const submit = ()=>{
     const v = val(); if(!(v>0)) return;
     if(v>maxQty){ toast('สต๊อกไม่พอ','err'); return; }
-    closeModal(); addToCart(mode, mid, Number(v.toFixed(3)));
+    closeModal(); addToCart(mode, mid, Number(v.toFixed(3)), unitPrice());
   };
   ok.onclick = submit;
   document.getElementById('wtCancel').onclick = closeModal;
@@ -1988,7 +1997,7 @@ function setWholesaleLine(mid, qty, price){
   if(row){ row.qty = qty; row.price = price; } else cart.push({materialId:mid, qty, price});
   saveState(); renderContent(); refreshCartSheetIfOpen('sell');
 }
-function addToCart(mode, mid, qty){
+function addToCart(mode, mid, qty, unitPrice){
   qty = qty || 1;
   const m = getMaterial(mid); if(!m) return;
   const cart = cartArray(mode);
@@ -1999,6 +2008,11 @@ function addToCart(mode, mid, qty){
   }
   if(row){ row.qty = Number((row.qty + qty).toFixed(3)); }
   else cart.push({materialId:mid, qty});
+  /* one-off price typed in the weight dialog (applies to this product line on this bill only) */
+  if(unitPrice != null && isFinite(unitPrice)){
+    const line = cart.find(c=>c.materialId===mid);
+    if(unitPrice === materialPrice(m, mode)) delete line.price; else line.price = unitPrice;
+  }
   saveState(); renderContent(); refreshCartSheetIfOpen(mode);
 }
 function changeCartQty(mode, mid, delta){
