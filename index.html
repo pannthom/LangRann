@@ -794,6 +794,7 @@ const ICONS = {
   scale:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 4h11.6a2 2 0 0 1 1.95 1.55l1.7 11.2A2 2 0 0 1 19.47 19H4.53a2 2 0 0 1-1.98-2.25l1.7-11.2A2 2 0 0 1 6.2 4z"/><path d="M8.2 11.2a4 4 0 0 1 7.6 0"/><path d="M12 11.2l1.8-2.2"/></svg>',
   receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.4L14 21l-2-1.4L10 21l-2-1.4L6 21z"/><path d="M9 8h6M9 11.5h6M9 15h4"/></svg>',
   settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.8c1.9.7 3 2.5 3 5.2"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   minus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 12h14"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.8A1.3 1.3 0 0 1 10.3 3.5h3.4A1.3 1.3 0 0 1 15 4.8V7M6.5 7l.8 12.2A1.8 1.8 0 0 0 9.1 21h5.8a1.8 1.8 0 0 0 1.8-1.8L17.5 7"/></svg>',
@@ -933,6 +934,7 @@ const TABS = [
   {id:'pos', label:'รับซื้อของ', icon:'scale'},
   {id:'sell', label:'ขายของ', icon:'tag'},
   {id:'receipts', label:'ประวัติ', icon:'receipt'},
+  {id:'customers', label:'ลูกค้า', icon:'users'},
   {id:'settings', label:'ตั้งค่าร้าน', icon:'settings'},
 ];
 
@@ -1051,6 +1053,7 @@ function renderContent(){
   else if(state.ui.tab==='pos') c.innerHTML = viewPOS();
   else if(state.ui.tab==='sell') c.innerHTML = viewSell();
   else if(state.ui.tab==='receipts') c.innerHTML = viewReceipts();
+  else if(state.ui.tab==='customers') c.innerHTML = viewCustomers();
   else if(state.ui.tab==='settings') c.innerHTML = viewSettings();
   const cartShowing = (state.ui.tab==='pos' && state.cart.length>0) || (state.ui.tab==='sell' && state.sellCart.length>0);
   c.classList.toggle('has-cart-bar', cartShowing);
@@ -2077,6 +2080,7 @@ function cartSheetFootHTML(mode){
 }
 function bindCartSheetOverlay(mode, overlay){
   bindCartEvents(overlay);
+  attachCustomerAutofill(overlay, '#sheetPartyName', '#sheetPartyPhone', '#sheetPartyId', '#sheetPartyAddress');
   const clearBtn = overlay.querySelector('#sheetClear');
   if(clearBtn) clearBtn.onclick = ()=> clearCartAction(mode);
   const checkoutBtn = overlay.querySelector('#sheetCheckout');
@@ -2281,6 +2285,111 @@ function deleteOverheadConfirm(id){
 }
 
 /* ================= HISTORY (ใบรับซื้อ / ขายออก) ================= */
+/* ================= CUSTOMERS (built from receipts: sellers on buy bills, buyers on sell bills) ================= */
+function buildCustomers(){
+  const map = new Map();
+  const keyOf = (name, phone, id)=>{
+    const d = idDigits(id); if(d) return 'id:'+d;
+    const ph = String(phone||'').replace(/\D/g,''); if(ph) return 'ph:'+ph;
+    const n = String(name||'').trim().toLowerCase(); return n ? 'nm:'+n : null;
+  };
+  const add = (type, doc, name, phone, id, addr)=>{
+    const k = keyOf(name, phone, id); if(!k) return;
+    let c = map.get(k);
+    if(!c){ c = { key:k, name:'', phone:'', idCard:'', address:'', recs:[], buyCount:0, buyTotal:0, sellCount:0, sellTotal:0, last:'' }; map.set(k,c); }
+    c.recs.push({ type, doc, name, phone, id, addr });
+    if(type==='buy'){ c.buyCount++; c.buyTotal += Number(doc.totalCost)||0; } else { c.sellCount++; c.sellTotal += Number(doc.totalAmount)||0; }
+  };
+  state.purchases.forEach(p=> add('buy', p, p.sellerName, p.sellerPhone, p.sellerIdCard, p.sellerAddress));
+  state.sales.forEach(x=> add('sell', x, x.buyerName, x.buyerPhone, '', ''));
+  const out = [...map.values()];
+  out.forEach(c=>{
+    c.recs.sort((a,b)=> String(b.doc.date).localeCompare(String(a.doc.date)));
+    c.last = c.recs[0].doc.date;
+    c.recs.forEach(r=>{            // newest non-empty value wins
+      if(!c.name && r.name) c.name = String(r.name).trim();
+      if(!c.phone && r.phone) c.phone = String(r.phone).trim();
+      if(!c.idCard && r.id) c.idCard = idDigits(r.id) ? String(r.id).trim() : '';
+      if(!c.address && r.addr) c.address = String(r.addr).trim();
+    });
+  });
+  out.sort((a,b)=> String(b.last).localeCompare(String(a.last)));
+  return out;
+}
+function viewCustomers(){
+  const list = buildCustomers();
+  return `
+    <div class="panel">
+      <div class="panel-head"><h2>ลูกค้า (${list.length})</h2></div>
+      <div style="padding:0 2px 12px;"><input id="custSearch" type="search" autocomplete="off" placeholder="ค้นหาชื่อ / เบอร์ / เลขบัตร / ที่อยู่" style="width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink);"></div>
+      ${list.length ? `
+      <div class="table-scroll"><table class="rt" id="custTable">
+        <thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th class="num">รับซื้อจากเขา</th><th class="num">ขายให้เขา</th><th>ล่าสุด</th></tr></thead>
+        <tbody>
+          ${list.map(c=>`
+            <tr class="receipt-list-row" data-cust="${esc(c.key)}" data-q="${esc((c.name+' '+c.phone+' '+c.idCard+' '+c.address).toLowerCase())}">
+              <td><b>${c.name ? esc(c.name) : '<span style="color:var(--muted);">(ไม่มีชื่อ)</span>'}</b></td>
+              <td class="mono">${c.phone ? esc(c.phone) : '<span style="color:var(--muted);">—</span>'}</td>
+              <td class="num mono">${c.buyCount ? c.buyCount+' ครั้ง · ฿'+money(c.buyTotal) : '<span style="color:var(--muted);">—</span>'}</td>
+              <td class="num mono">${c.sellCount ? c.sellCount+' ครั้ง · ฿'+money(c.sellTotal) : '<span style="color:var(--muted);">—</span>'}</td>
+              <td>${fmtDate(c.last)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div id="custNone" class="empty" style="display:none;"><div>ไม่พบลูกค้าที่ค้นหา</div></div>`
+      : `<div class="empty">${ic('users')}<div>ยังไม่มีประวัติลูกค้า</div><div class="hint">ใส่ชื่อหรือเบอร์ผู้ขาย/ผู้ซื้อตอนทำรายการ ระบบจะเก็บประวัติให้อัตโนมัติ</div></div>`}
+      <div class="field-hint" style="margin:10px 16px 4px;">รายชื่อสร้างจากใบรับซื้อ/ใบขายอัตโนมัติ (จับคู่ด้วยเลขบัตร ถ้าไม่มีใช้เบอร์โทร ถ้าไม่มีใช้ชื่อ) ใช้ข้อมูลจากครั้งล่าสุดเป็นหลัก</div>
+    </div>`;
+}
+function openCustomerModal(key){
+  const c = buildCustomers().find(x=>x.key===key); if(!c) return;
+  const row = (k,v)=> v ? `<div class="r-info" style="display:flex; justify-content:space-between; gap:12px; padding:4px 0; font-size:14px;"><span style="color:var(--muted); flex:none;">${k}</span><span style="text-align:right;">${esc(v)}</span></div>` : '';
+  const recs = c.recs.map((r,i)=>{
+    const d = r.doc, buy = r.type==='buy';
+    const no = buy ? '#'+String(d.no).padStart(4,'0') : '#S'+String(d.no).padStart(4,'0');
+    return `<div data-crec="${i}" style="display:flex; align-items:center; gap:8px; padding:9px 2px; border-top:1px solid var(--line); cursor:pointer;">
+      <span style="flex:none; font-size:11px; font-weight:700; border-radius:999px; padding:2px 9px; ${buy?'background:var(--tealsoft); color:var(--teal);':'background:var(--lime); color:#111;'}">${buy?'รับซื้อ':'ขายออก'}</span>
+      <span class="mono" style="font-size:13px;">${no}</span>
+      <span style="flex:1; font-size:12px; color:var(--muted);">${fmtDate(d.date)}</span>
+      <span class="mono" style="font-weight:600;">฿${money(buy?d.totalCost:d.totalAmount)}</span></div>`;
+  }).join('');
+  openModal(esc(c.name||'ลูกค้า'), `
+    ${row('เบอร์โทร', c.phone)}${row('เลขบัตร ปชช.', c.idCard ? fmtIdCard(c.idCard) : '')}${row('ที่อยู่', c.address)}
+    <div style="display:flex; gap:16px; margin:10px 0 6px; font-size:13px; color:var(--muted); flex-wrap:wrap;">
+      ${c.buyCount?`<span>รับซื้อ ${c.buyCount} ครั้ง <b style="color:var(--ink);">฿${money(c.buyTotal)}</b></span>`:''}
+      ${c.sellCount?`<span>ขายให้ ${c.sellCount} ครั้ง <b style="color:var(--ink);">฿${money(c.sellTotal)}</b></span>`:''}
+    </div>
+    <div style="font-weight:600; font-size:14px; margin:12px 0 2px;">ประวัติ (${c.recs.length})</div>
+    <div style="max-height:46vh; overflow:auto;">${recs}</div>
+    <div class="field-hint" style="margin-top:8px;">กดที่รายการเพื่อดูใบเสร็จ</div>`,
+    `<button class="btn" id="mCancel">ปิด</button>`);
+  document.getElementById('mCancel').onclick = closeModal;
+  document.querySelectorAll('#modalOverlay [data-crec]').forEach(el=> el.onclick = ()=>{
+    const r = c.recs[+el.dataset.crec];
+    closeModal();
+    if(r.type==='buy') openReceiptModal(r.doc.id); else openSaleReceiptModal(r.doc.id);
+  });
+}
+/* typing a known name/phone in the buy/sell form fills the rest (only empty fields) */
+function attachCustomerAutofill(root, nameSel, phoneSel, idSel, addrSel){
+  const name = root.querySelector(nameSel), phone = root.querySelector(phoneSel);
+  if(!name) return;
+  let dl = document.getElementById('custNames');
+  if(!dl){ dl = document.createElement('datalist'); dl.id = 'custNames'; document.body.appendChild(dl); }
+  const custs = buildCustomers();
+  dl.innerHTML = custs.filter(c=>c.name).map(c=>`<option value="${esc(c.name)}"></option>`).join('');
+  name.setAttribute('list','custNames');
+  const fill = (c)=>{
+    const set = (sel, v)=>{ const el = sel && root.querySelector(sel); if(el && !el.value && v) el.value = v; };
+    set(phoneSel, c.phone); set(idSel, c.idCard); set(addrSel, c.address);
+  };
+  name.addEventListener('change', ()=>{ const n = name.value.trim().toLowerCase(); const c = n && custs.find(x=>x.name.toLowerCase()===n); if(c){ if(!name.value) name.value = c.name; fill(c); } });
+  if(phone) phone.addEventListener('change', ()=>{
+    const d = phone.value.replace(/\D/g,''); if(!d) return;
+    const c = custs.find(x=>x.phone.replace(/\D/g,'')===d); if(c){ if(!name.value) name.value = c.name; fill(c); }
+  });
+}
+
 function viewReceipts(){
   const historyTab = state.ui.historyTab || 'buy';
   return `
@@ -3046,6 +3155,16 @@ function bindContentEvents(){
     if(b.dataset.checkout==='sell') sellCheckout(); else checkout();
   });
   c.querySelectorAll('[data-open-sheet]').forEach(b=> b.onclick = ()=> openCartSheet(b.dataset.openSheet));
+
+  // Customers
+  const custSearch = document.getElementById('custSearch');
+  if(custSearch) custSearch.addEventListener('input', ()=>{
+    const q = custSearch.value.trim().toLowerCase(); let shown = 0;
+    c.querySelectorAll('#custTable tbody tr').forEach(tr=>{ const ok = !q || tr.dataset.q.includes(q); tr.style.display = ok ? '' : 'none'; if(ok) shown++; });
+    const none = document.getElementById('custNone'); if(none) none.style.display = shown ? 'none' : '';
+  });
+  c.querySelectorAll('[data-cust]').forEach(tr=> tr.addEventListener('click', ()=> openCustomerModal(tr.dataset.cust)));
+  attachCustomerAutofill(c, '#sellerName, #buyerName', '#sellerPhone, #buyerPhone', '#sellerIdCard', '#sellerAddress');
 
   // History sub-tabs
   c.querySelectorAll('[data-history-tab]').forEach(b=>{
