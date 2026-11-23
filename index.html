@@ -2348,11 +2348,12 @@ function viewCustomers(){
       <div style="padding:0 2px 12px;"><input id="custSearch" type="search" autocomplete="off" placeholder="ค้นหาชื่อ / เบอร์ / เลขบัตร / ที่อยู่" style="width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--ink);"></div>
       ${list.length ? `
       <div class="table-scroll"><table class="rt" id="custTable">
-        <thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th class="num">รับซื้อจากเขา</th><th class="num">ขายให้เขา</th><th>ล่าสุด</th></tr></thead>
+        <thead><tr><th>ชื่อ</th><th>ที่อยู่</th><th>เบอร์โทร</th><th class="num">รับซื้อจากเขา</th><th class="num">ขายให้เขา</th><th>ล่าสุด</th></tr></thead>
         <tbody>
           ${list.map(c=>`
             <tr class="receipt-list-row" data-cust="${esc(c.key)}" data-q="${esc((c.name+' '+c.phone+' '+c.idCard+' '+c.address).toLowerCase())}">
               <td><b>${c.name ? esc(c.name) : '<span style="color:var(--muted);">(ไม่มีชื่อ)</span>'}</b></td>
+              <td>${c.address ? esc(c.address) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="mono">${c.phone ? esc(c.phone) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="num mono">${c.buyCount ? c.buyCount+' ครั้ง · ฿'+money(c.buyTotal) : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="num mono">${c.sellCount ? c.sellCount+' ครั้ง · ฿'+money(c.sellTotal) : '<span style="color:var(--muted);">—</span>'}</td>
