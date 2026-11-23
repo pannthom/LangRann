@@ -2621,13 +2621,47 @@ function receiptHTML(purchase){
 function openReceiptModal(purchaseId){
   const purchase = state.purchases.find(p=>p.id===purchaseId); if(!purchase) return;
   openModal(`ใบรับซื้อ #${String(purchase.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${receiptHTML(purchase)}</div>`, `
+    ${isAdmin() ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
     <button class="btn ghost" id="mClose">ปิด</button>
     <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
+  const dp = document.getElementById('mDelBill'); if(dp) dp.onclick = ()=> confirmDeleteBill('purchase', purchase.id);
   document.getElementById('mPdf').onclick = ()=> exportReceiptPDF(purchase);
   document.getElementById('mShare').onclick = ()=>{ window.__shareNext = true; exportReceiptPDF(purchase); };
+}
+
+/* delete a bill (admin): the server reverses the stock and keeps a copy in bill_audit; the next bill number continues from the last remaining bill */
+function confirmDeleteBill(kind, id){
+  const buy = kind==='purchase';
+  const b = (buy ? state.purchases : state.sales).find(x=>x.id===id); if(!b) return;
+  const label = (buy ? 'ใบรับซื้อ #' : 'ใบขาย #S') + String(b.no).padStart(4,'0');
+  const total = buy ? b.totalCost : b.totalAmount;
+  const isLast = (buy ? state.purchases : state.sales).every(x=> x.no <= b.no);
+  openModal('ลบบิล', `
+    <p style="font-size:15px; line-height:1.6; margin-bottom:8px;">ลบ <b>${label}</b> ยอด <b>฿${money(total)}</b> ?</p>
+    <ul style="font-size:13.5px; line-height:1.7; margin:0 0 6px 18px; color:var(--muted);">
+      <li>${buy ? 'หักสต็อกที่รับเข้าตามบิลนี้คืน' : 'คืนสต็อกที่ขายออกตามบิลนี้'}</li>
+      <li>${isLast ? 'เป็นบิลล่าสุด บิลถัดไปจะใช้เลขนี้ซ้ำ' : 'เลขบิลอื่นไม่เปลี่ยน บิลถัดไปรันต่อจากบิลที่มีเลขสูงสุดที่เหลืออยู่'}</li>
+      <li>ระบบเก็บสำเนาบิลที่ลบไว้ในฐานข้อมูลหลังบ้าน</li>
+    </ul>`,
+    `<button class="btn" id="mCancel">ยกเลิก</button><button class="btn danger" id="mGo" style="border-color:var(--brick);">ลบบิลนี้</button>`);
+  document.getElementById('mCancel').onclick = ()=> buy ? openReceiptModal(id) : openSaleReceiptModal(id);
+  document.getElementById('mGo').onclick = async ()=>{
+    const go = document.getElementById('mGo'); go.disabled = true;
+    const { error } = await sb.rpc(buy ? 'delete_purchase' : 'delete_sale', buy ? { pid:id } : { sid:id });
+    if(error){
+      go.disabled = false;
+      const m = String(error.message||'');
+      if(/stock too low/i.test(m)) return toast('ลบไม่ได้ สต็อกไม่พอหักคืน (ของจากบิลนี้ถูกขายไปแล้ว) ให้ลบใบขายที่เกี่ยวข้องก่อน','err');
+      if(/could not find|schema cache|PGRST202/i.test(m)) return toast('ฐานข้อมูลยังเป็นเวอร์ชันเก่า ให้รัน schema.sql ใหม่ใน Supabase (SQL Editor) ก่อน','err');
+      return toast('ลบไม่สำเร็จ: '+friendlyErr(error),'err');
+    }
+    await pullAll(true);
+    closeModal(); renderContent();
+    toast('ลบ '+label+' แล้ว');
+  };
 }
 
 function saleReceiptHTML(sale){
@@ -2717,11 +2751,13 @@ async function exportSaleReceiptPDF(sale){
 function openSaleReceiptModal(saleId){
   const sale = state.sales.find(s=>s.id===saleId); if(!sale) return;
   openModal(`ใบขาย #S${String(sale.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${saleReceiptHTML(sale)}</div>`, `
+    ${isAdmin() ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
     <button class="btn ghost" id="mClose">ปิด</button>
     <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
   `, 'wide');
   document.getElementById('mClose').onclick = closeModal;
+  const ds = document.getElementById('mDelBill'); if(ds) ds.onclick = ()=> confirmDeleteBill('sale', sale.id);
   document.getElementById('mPdf').onclick = ()=> exportSaleReceiptPDF(sale);
   document.getElementById('mShare').onclick = ()=>{ window.__shareNext = true; exportSaleReceiptPDF(sale); };
 }

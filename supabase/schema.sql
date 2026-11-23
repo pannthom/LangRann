@@ -148,9 +148,76 @@ begin
   return jsonb_build_object('id', sid, 'no', n);
 end $$;
 
+-- ---------- ลบบิล (เฉพาะ admin) : ย้อนสต็อก + เก็บสำเนาไว้ใน bill_audit ----------
+-- เลขบิลถัดไปคิดจาก max(no)+1 ของบิลที่เหลืออยู่ จึงรันต่อจากบิลก่อนหน้าโดยอัตโนมัติ
+create table if not exists public.bill_audit (
+  id          bigserial primary key,
+  kind        text not null,              -- 'purchase' | 'sale'
+  bill_id     text not null,
+  no          int,
+  deleted_by  uuid,
+  deleted_at  timestamptz not null default now(),
+  data        jsonb not null
+);
+
+create or replace function public.delete_purchase(pid text)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+  row public.purchases%rowtype;
+  it  jsonb;
+  cur numeric;
+begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  lock table public.purchases in share row exclusive mode;
+  select * into row from public.purchases where id = pid for update;
+  if not found then return jsonb_build_object('ok', true, 'missing', true); end if;
+  -- รับซื้อเข้ามา => ลบแล้วต้องหักสต็อกคืน (ถ้าของถูกขายไปแล้วจนไม่พอ ให้ปฏิเสธ)
+  for it in select * from jsonb_array_elements(row.data->'items') loop
+    select stock into cur from public.materials where id = it->>'mid' for update;
+    if cur is not null and cur < (it->>'qty')::numeric then
+      raise exception 'stock too low: %', coalesce(it->>'name','?');
+    end if;
+  end loop;
+  for it in select * from jsonb_array_elements(row.data->'items') loop
+    update public.materials
+       set stock = round(stock - (it->>'qty')::numeric, 3), updated_at = now()
+     where id = it->>'mid';
+  end loop;
+  insert into public.bill_audit(kind, bill_id, no, deleted_by, data) values ('purchase', row.id, row.no, auth.uid(), row.data);
+  delete from public.purchases where id = pid;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.delete_sale(sid text)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+  row public.sales%rowtype;
+  it  jsonb;
+begin
+  if public.my_role() <> 'admin' then raise exception 'no permission'; end if;
+  lock table public.sales in share row exclusive mode;
+  select * into row from public.sales where id = sid for update;
+  if not found then return jsonb_build_object('ok', true, 'missing', true); end if;
+  -- ขายออกไป => ลบแล้วคืนสต็อก
+  for it in select * from jsonb_array_elements(row.data->'items') loop
+    update public.materials
+       set stock = round(stock + (it->>'qty')::numeric, 3), updated_at = now()
+     where id = it->>'mid';
+  end loop;
+  insert into public.bill_audit(kind, bill_id, no, deleted_by, data) values ('sale', row.id, row.no, auth.uid(), row.data);
+  delete from public.sales where id = sid;
+  return jsonb_build_object('ok', true);
+end $$;
+
 grant execute on function public.record_purchase(jsonb) to authenticated;
 grant execute on function public.record_sale(jsonb)     to authenticated;
 grant execute on function public.my_role()              to authenticated;
+grant execute on function public.delete_purchase(text)  to authenticated;
+grant execute on function public.delete_sale(text)      to authenticated;
 
 -- ---------- สิทธิ์ระดับแถว (Row Level Security) ----------
 alter table public.profiles      enable row level security;
@@ -159,6 +226,7 @@ alter table public.materials     enable row level security;
 alter table public.overheads     enable row level security;
 alter table public.purchases     enable row level security;
 alter table public.sales         enable row level security;
+alter table public.bill_audit    enable row level security;
 
 -- profiles: เห็นของตัวเอง, admin เห็นและเปลี่ยนสิทธิ์ทุกคนได้
 drop policy if exists profiles_select on public.profiles;
@@ -201,6 +269,9 @@ create policy purchases_select on public.purchases for select to authenticated
 drop policy if exists purchases_admin_write on public.purchases;
 create policy purchases_admin_write on public.purchases for all to authenticated
   using (public.my_role() = 'admin') with check (public.my_role() = 'admin');
+
+drop policy if exists bill_audit_select on public.bill_audit;
+create policy bill_audit_select on public.bill_audit for select to authenticated using (public.my_role() = 'admin');
 
 drop policy if exists sales_select on public.sales;
 create policy sales_select on public.sales for select to authenticated
