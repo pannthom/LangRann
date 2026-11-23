@@ -2641,10 +2641,11 @@ function receiptHTML(purchase){
   `;
 }
 
-function openReceiptModal(purchaseId){
+function openReceiptModal(purchaseId, opts){
+  const canDelete = !!(opts && opts.fromHistory) && isAdmin();
   const purchase = state.purchases.find(p=>p.id===purchaseId); if(!purchase) return;
   openModal(`ใบรับซื้อ #${String(purchase.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${receiptHTML(purchase)}</div>`, `
-    ${isAdmin() ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
+    ${canDelete ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
     <button class="btn ghost" id="mClose">ปิด</button>
     <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
@@ -2670,7 +2671,7 @@ function confirmDeleteBill(kind, id){
       <li>ระบบเก็บสำเนาบิลที่ลบไว้ในฐานข้อมูลหลังบ้าน</li>
     </ul>`,
     `<button class="btn" id="mCancel">ยกเลิก</button><button class="btn danger" id="mGo" style="border-color:var(--brick);">ลบบิลนี้</button>`);
-  document.getElementById('mCancel').onclick = ()=> buy ? openReceiptModal(id) : openSaleReceiptModal(id);
+  document.getElementById('mCancel').onclick = ()=> buy ? openReceiptModal(id, {fromHistory:true}) : openSaleReceiptModal(id, {fromHistory:true});
   document.getElementById('mGo').onclick = async ()=>{
     const go = document.getElementById('mGo'); go.disabled = true;
     const { error } = await sb.rpc(buy ? 'delete_purchase' : 'delete_sale', buy ? { pid:id } : { sid:id });
@@ -2771,10 +2772,11 @@ async function exportSaleReceiptPDF(sale){
   }
 }
 
-function openSaleReceiptModal(saleId){
+function openSaleReceiptModal(saleId, opts){
+  const canDelete = !!(opts && opts.fromHistory) && isAdmin();
   const sale = state.sales.find(s=>s.id===saleId); if(!sale) return;
   openModal(`ใบขาย #S${String(sale.no).padStart(4,'0')}`, `<div class="receipt-view-wrap">${saleReceiptHTML(sale)}</div>`, `
-    ${isAdmin() ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
+    ${canDelete ? `<button class="btn danger" id="mDelBill" style="margin-right:auto;">ลบบิลนี้</button>` : ''}
     <button class="btn ghost" id="mClose">ปิด</button>
     <button class="btn gold" id="mShare">${ic('receipt')} ปริ้น (PDF)</button>
     <button class="btn gold" id="mPdf">${ic('download')} ดาวน์โหลด PDF</button>
@@ -3343,13 +3345,23 @@ function bindContentEvents(){
 
   // Receipts
   c.querySelectorAll('[data-view-receipt]').forEach(el=>{
-    el.addEventListener('click', ()=> openReceiptModal(el.dataset.viewReceipt));
+    el.addEventListener('click', ()=> openReceiptModal(el.dataset.viewReceipt, { fromHistory:true }));
+  });
+  c.querySelectorAll('[data-view-sale]').forEach(el=>{
+    el.addEventListener('click', ()=> openSaleReceiptModal(el.dataset.viewSale, { fromHistory:true }));
   });
   c.querySelectorAll('[data-pdf-receipt]').forEach(el=>{
     el.addEventListener('click', (e)=>{
       e.stopPropagation();
       const purchase = state.purchases.find(p=>p.id===el.dataset.pdfReceipt);
       if(purchase) exportReceiptPDF(purchase);
+    });
+  });
+  c.querySelectorAll('[data-pdf-sale]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const sale = state.sales.find(x=>x.id===el.dataset.pdfSale);
+      if(sale) exportSaleReceiptPDF(sale);
     });
   });
   c.querySelectorAll('[data-select-receipt]').forEach(cb=>{
